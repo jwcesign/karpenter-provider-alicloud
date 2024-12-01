@@ -42,9 +42,6 @@ var (
 )
 
 const (
-	MemoryAvailable = "memory.available"
-	NodeFSAvailable = "nodefs.available"
-
 	GiBMiBRatio              = 1024
 	MiBByteRatio             = 1024 * 1024
 	TerwayMinENIRequirements = 11
@@ -60,7 +57,7 @@ type ZoneData struct {
 	Available bool
 }
 
-func NewInstanceType(ctx context.Context,
+func NewInstanceType(ctx context.Context, overhead corev1.ResourceList,
 	info *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType,
 	kc *v1alpha1.KubeletConfiguration, region string, systemDisk *v1alpha1.SystemDisk,
 	offerings cloudprovider.Offerings, clusterCNI string) *cloudprovider.InstanceType {
@@ -74,9 +71,10 @@ func NewInstanceType(ctx context.Context,
 		Offerings:    offerings,
 		Capacity:     computeCapacity(ctx, info, kc.MaxPods, kc.PodsPerCore, systemDisk, clusterCNI),
 		Overhead: &cloudprovider.InstanceTypeOverhead{
-			KubeReserved:      kubeReservedResources(kc.KubeReserved),
-			SystemReserved:    systemReservedResources(kc.SystemReserved),
-			EvictionThreshold: evictionThreshold(memory(ctx, info), ephemeralStorage(systemDisk), kc.EvictionHard, kc.EvictionSoft),
+			// Follow overhead will be merged, so we can set only one overhead totally
+			KubeReserved:      overhead,
+			SystemReserved:    corev1.ResourceList{},
+			EvictionThreshold: corev1.ResourceList{},
 		},
 	}
 	if it.Requirements.Compatible(scheduling.NewRequirements(scheduling.NewRequirement(corev1.LabelOSStable, corev1.NodeSelectorOpIn, string(corev1.Windows)))) == nil {
@@ -176,62 +174,6 @@ func computeCapacity(ctx context.Context,
 		v1alpha1.ResourceAMDGPU:         *amdGPUs(info),
 	}
 	return resourceList
-}
-
-func kubeReservedResources(kubeReserved map[string]string) corev1.ResourceList {
-	resources := corev1.ResourceList{
-		// TODO: Following data is extract from real env
-		// Please check it more
-		corev1.ResourceMemory: resource.MustParse("447Mi"),
-		corev1.ResourceCPU:    resource.MustParse("35m"),
-	}
-
-	return lo.Assign(resources, lo.MapEntries(kubeReserved, func(k string, v string) (corev1.ResourceName, resource.Quantity) {
-		return corev1.ResourceName(k), resource.MustParse(v)
-	}))
-}
-
-func systemReservedResources(systemReserved map[string]string) corev1.ResourceList {
-	resources := corev1.ResourceList{
-		// TODO: Following data is extract from real env
-		// Please check it more
-		corev1.ResourceMemory: resource.MustParse("447Mi"),
-		corev1.ResourceCPU:    resource.MustParse("35m"),
-	}
-
-	return lo.Assign(resources, lo.MapEntries(systemReserved, func(k string, v string) (corev1.ResourceName, resource.Quantity) {
-		return corev1.ResourceName(k), resource.MustParse(v)
-	}))
-}
-
-func evictionThreshold(memory *resource.Quantity, storage *resource.Quantity, evictionHard map[string]string, evictionSoft map[string]string) corev1.ResourceList {
-	overhead := corev1.ResourceList{
-		// TODO: Following data is extract from real env
-		// Please check it more
-		corev1.ResourceMemory: resource.MustParse("300Mi"),
-	}
-
-	override := corev1.ResourceList{}
-	var evictionSignals []map[string]string
-	if evictionHard != nil {
-		evictionSignals = append(evictionSignals, evictionHard)
-	}
-	if evictionSoft != nil {
-		evictionSignals = append(evictionSignals, evictionSoft)
-	}
-
-	for _, m := range evictionSignals {
-		temp := corev1.ResourceList{}
-		if v, ok := m[MemoryAvailable]; ok {
-			temp[corev1.ResourceMemory] = computeEvictionSignal(*memory, v)
-		}
-		if v, ok := m[NodeFSAvailable]; ok {
-			temp[corev1.ResourceEphemeralStorage] = computeEvictionSignal(*storage, v)
-		}
-		override = resources.MaxResources(override, temp)
-	}
-	// Assign merges maps from left to right so overrides will always be taken last
-	return lo.Assign(overhead, override)
 }
 
 // computeEvictionSignal computes the resource quantity value for an eviction signal value, computed off the
