@@ -29,7 +29,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -179,11 +178,6 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 		return nil, fmt.Errorf("failed to get cluster CNI: %w", err)
 	}
 
-	nodeResourceOverhead, err := p.nodeOverhead(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get node resource overhead: %w", err)
-	}
-
 	result := lo.Map(p.instanceTypesInfo, func(i *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType, _ int) *cloudprovider.InstanceType {
 		zoneData := lo.Map(allZones.UnsortedList(), func(zoneID string, _ int) ZoneData {
 			if !p.instanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID) || !vSwitchsZones.Has(zoneID) {
@@ -203,7 +197,7 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 		// so that Karpenter is able to cache the set of InstanceTypes based on values that alter the set of instance types
 		// !!! Important !!!
 		offers := p.createOfferings(ctx, *i.InstanceTypeId, zoneData)
-		return NewInstanceType(ctx, nodeResourceOverhead, i, kc, p.region, nodeClass.Spec.SystemDisk, offers, clusterCNI)
+		return NewInstanceType(ctx, i, kc, p.region, nodeClass.Spec.SystemDisk, offers, clusterCNI)
 	})
 
 	// Filter out nil values
@@ -211,37 +205,6 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 
 	p.instanceTypesCache.SetDefault(key, result)
 	return result, nil
-}
-
-func (p *DefaultProvider) nodeOverhead(ctx context.Context) (corev1.ResourceList, error) {
-	var nodes corev1.NodeList
-	if err := p.kubeClient.List(ctx, &nodes); err != nil {
-		return corev1.ResourceList{}, err
-	}
-
-	// We do not sure how to calculate the overhead of the node, let's just use the maximum possible
-	// To avoid some loop node creation
-	maxCPUOverHead := int64(0)
-	maxMemoryOverHead := int64(0)
-	for _, node := range nodes.Items {
-		capacity := node.Status.Capacity
-		allocatable := node.Status.Allocatable
-
-		cpuOverHead := capacity.Cpu().MilliValue() - allocatable.Cpu().MilliValue()
-		memoryOverHead := capacity.Memory().Value() - allocatable.Memory().Value()
-
-		if cpuOverHead > maxCPUOverHead {
-			maxCPUOverHead = cpuOverHead
-		}
-		if memoryOverHead > maxMemoryOverHead {
-			maxMemoryOverHead = memoryOverHead
-		}
-	}
-
-	return corev1.ResourceList{
-		corev1.ResourceCPU:    *resource.NewMilliQuantity(maxCPUOverHead, resource.DecimalSI),
-		corev1.ResourceMemory: *resource.NewQuantity(maxMemoryOverHead, resource.DecimalSI),
-	}, nil
 }
 
 func (p *DefaultProvider) UpdateInstanceTypes(ctx context.Context) error {
