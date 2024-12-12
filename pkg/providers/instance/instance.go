@@ -533,14 +533,10 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 		AutoProvisioningGroupType:       tea.String("instant"),
 		LaunchConfiguration: &ecsclient.CreateAutoProvisioningGroupRequestLaunchConfiguration{
 			// TODO: we should set image id for each instance types after alibabacloud supports
-			ImageId:          tea.String(imageID),
-			SecurityGroupIds: securityGroupIDs,
-			UserData:         tea.String(userData),
-
-			// TODO: AutoProvisioningGroup is not compatible with SecurityGroupIds, waiting for Aliyun developers to fix it,
-			// so here we only take the first one.
+			ImageId:                    tea.String(imageID),
+			UserData:                   tea.String(userData),
 			ResourceGroupId:            tea.String(nodeClass.Spec.ResourceGroupID),
-			SecurityGroupId:            securityGroupIDs[0],
+			SecurityGroupIds:           securityGroupIDs,
 			SystemDiskSize:             systemDisk.Size,
 			SystemDiskPerformanceLevel: systemDisk.PerformanceLevel,
 			Tag:                        reqTags,
