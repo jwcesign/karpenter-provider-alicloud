@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/scheduling"
 	"sigs.k8s.io/karpenter/pkg/utils/resources"
 
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/operator/options"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
@@ -540,6 +541,10 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 			SystemDiskSize:             systemDisk.Size,
 			SystemDiskPerformanceLevel: systemDisk.PerformanceLevel,
 			Tag:                        reqTags,
+		},
+		// Add this tag to auto-provisioning-group, alibabacloud will monitor the requests and enhance the stability
+		Tag: []*ecsclient.CreateAutoProvisioningGroupRequestTag{
+			{Key: tea.String(apis.Group + "/autoprovisiongroup"), Value: tea.String("true")},
 		},
 
 		SystemDiskConfig: lo.Map(systemDisk.Categories, func(category string, _ int) *ecsclient.CreateAutoProvisioningGroupRequestSystemDiskConfig {
