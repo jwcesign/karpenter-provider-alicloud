@@ -169,8 +169,9 @@ func (p *DefaultProvider) getImagesWithAlias(k8sVersion string) (Images, error) 
 
 func (p *DefaultProvider) getImagesWithID(id string) (Images, error) {
 	req := &ecs.DescribeImagesRequest{
-		RegionId: tea.String(p.region),
-		ImageId:  tea.String(id),
+		RegionId:    tea.String(p.region),
+		ImageId:     tea.String(id),
+		ShowExpired: tea.Bool(true),
 	}
 
 	resp, err := p.ecsClient.DescribeImages(req)
