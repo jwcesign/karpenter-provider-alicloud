@@ -39,9 +39,10 @@ import (
 )
 
 type Controller struct {
-	kubeClient      client.Client
-	cloudProvider   cloudprovider.CloudProvider
-	successfulCount uint64 // keeps track of successful reconciles for more aggressive requeueing near the start of the controller
+	kubeClient    client.Client
+	cloudProvider cloudprovider.CloudProvider
+	// Keeps track of successful reconciles for more aggressive requeueing near the start of the controller.
+	successfulCount uint64
 }
 
 func NewController(kubeClient client.Client, cloudProvider cloudprovider.CloudProvider) *Controller {

@@ -85,7 +85,7 @@ func (c *Controller) Reconcile(ctx context.Context, node *corev1.Node) (reconcil
 	return reconcile.Result{}, nil
 }
 
-func (c *Controller) Register(ctx context.Context, m manager.Manager) error {
+func (c *Controller) Register(_ context.Context, m manager.Manager) error {
 	return controllerruntime.NewControllerManagedBy(m).
 		Named("interruption").
 		For(&corev1.Node{}).

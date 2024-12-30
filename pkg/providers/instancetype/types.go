@@ -53,8 +53,9 @@ const (
 )
 
 type ZoneData struct {
-	ID        string
-	Available bool
+	ID            string
+	Available     bool
+	SpotAvailable bool
 }
 
 func calculateResourceOverhead(pods, cpuM, memoryMi int64) corev1.ResourceList {
@@ -79,7 +80,7 @@ var thresholds = [...]struct {
 	overhead float64
 }{
 	{1000, 0.06},
-	{3000, 0.01},
+	{2000, 0.01},
 	{3000, 0.005},
 	{4000, 0.005},
 }

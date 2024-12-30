@@ -66,8 +66,9 @@ type DefaultProvider struct {
 
 	instanceTypesInfo []*ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType
 
-	muInstanceTypesOfferings sync.RWMutex
-	instanceTypesOfferings   map[string]sets.Set[string]
+	muInstanceTypesOfferings   sync.RWMutex
+	instanceTypesOfferings     map[string]sets.Set[string]
+	spotInstanceTypesOfferings map[string]sets.Set[string]
 
 	instanceTypesCache *cache.Cache
 
@@ -83,17 +84,18 @@ func NewDefaultProvider(region string, kubeClient client.Client, ecsClient *ecsc
 	instanceTypesCache *cache.Cache, unavailableOfferingsCache *kcache.UnavailableOfferings,
 	pricingProvider pricing.Provider, ackProvider ack.Provider) *DefaultProvider {
 	return &DefaultProvider{
-		kubeClient:             kubeClient,
-		ecsClient:              ecsClient,
-		region:                 region,
-		pricingProvider:        pricingProvider,
-		ackProvider:            ackProvider,
-		instanceTypesInfo:      []*ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType{},
-		instanceTypesOfferings: map[string]sets.Set[string]{},
-		instanceTypesCache:     instanceTypesCache,
-		unavailableOfferings:   unavailableOfferingsCache,
-		cm:                     pretty.NewChangeMonitor(),
-		instanceTypesSeqNum:    0,
+		kubeClient:                 kubeClient,
+		ecsClient:                  ecsClient,
+		region:                     region,
+		pricingProvider:            pricingProvider,
+		ackProvider:                ackProvider,
+		instanceTypesInfo:          []*ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType{},
+		instanceTypesOfferings:     map[string]sets.Set[string]{},
+		spotInstanceTypesOfferings: map[string]sets.Set[string]{},
+		instanceTypesCache:         instanceTypesCache,
+		unavailableOfferings:       unavailableOfferingsCache,
+		cm:                         pretty.NewChangeMonitor(),
+		instanceTypesSeqNum:        0,
 	}
 }
 
@@ -110,6 +112,9 @@ func (p *DefaultProvider) validateState(nodeClass *v1alpha1.ECSNodeClass) error 
 	}
 	if len(p.instanceTypesOfferings) == 0 {
 		return errors.New("no instance types offerings found")
+	}
+	if len(p.spotInstanceTypesOfferings) == 0 {
+		return errors.New("no spot instance types offerings found")
 	}
 	if len(nodeClass.Status.VSwitches) == 0 {
 		return errors.New("no vswitches found")
@@ -182,13 +187,15 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 		zoneData := lo.Map(allZones.UnsortedList(), func(zoneID string, _ int) ZoneData {
 			if !p.instanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID) || !vSwitchsZones.Has(zoneID) {
 				return ZoneData{
-					ID:        zoneID,
-					Available: false,
+					ID:            zoneID,
+					Available:     false,
+					SpotAvailable: false,
 				}
 			}
 			return ZoneData{
-				ID:        zoneID,
-				Available: true,
+				ID:            zoneID,
+				Available:     true,
+				SpotAvailable: p.spotInstanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID),
 			}
 		})
 
@@ -271,18 +278,9 @@ func (p *DefaultProvider) UpdateInstanceTypeOfferings(ctx context.Context) error
 		log.FromContext(ctx).Error(err, "failed to get instance type offerings")
 		return err
 	}
-
-	if resp == nil || resp.Body == nil {
-		return errors.New("DescribeAvailableResourceWithOptions failed to return any instance types")
-	} else if resp.Body.AvailableZones == nil || len(resp.Body.AvailableZones.AvailableZone) == 0 {
-		return alierrors.WithRequestID(tea.StringValue(resp.Body.RequestId), errors.New("DescribeAvailableResourceWithOptions failed to return any instance types"))
-	}
-
-	for _, az := range resp.Body.AvailableZones.AvailableZone {
-		// TODO: Later, `ClosedWithStock` will be tested to determine if `ClosedWithStock` should be added.
-		if *az.StatusCategory == "WithStock" { // WithStock, ClosedWithStock, WithoutStock, ClosedWithoutStock
-			processAvailableResources(az, instanceTypesOfferings)
-		}
+	if err := processAvailableResourcesResponse(resp, instanceTypesOfferings); err != nil {
+		log.FromContext(ctx).Error(err, "failed to process available resource response")
+		return err
 	}
 
 	if p.cm.HasChanged("instance-type-offering", instanceTypesOfferings) {
@@ -292,6 +290,42 @@ func (p *DefaultProvider) UpdateInstanceTypeOfferings(ctx context.Context) error
 		log.FromContext(ctx).WithValues("instance-type-count", len(instanceTypesOfferings)).V(1).Info("discovered offerings for instance types")
 	}
 	p.instanceTypesOfferings = instanceTypesOfferings
+
+	spotInstanceTypesOfferings := map[string]sets.Set[string]{}
+	describeAvailableResourceRequest = &ecsclient.DescribeAvailableResourceRequest{
+		RegionId:            tea.String(p.region),
+		DestinationResource: tea.String("InstanceType"),
+		SpotStrategy:        tea.String("SpotAsPriceGo"),
+	}
+	resp, err = p.ecsClient.DescribeAvailableResourceWithOptions(
+		describeAvailableResourceRequest, &util.RuntimeOptions{})
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to get spot instance type offerings")
+		return err
+	}
+	if err := processAvailableResourcesResponse(resp, spotInstanceTypesOfferings); err != nil {
+		log.FromContext(ctx).Error(err, "failed to process spot instance type offerings")
+		return err
+	}
+	p.spotInstanceTypesOfferings = spotInstanceTypesOfferings
+	return nil
+}
+
+func processAvailableResourcesResponse(resp *ecsclient.DescribeAvailableResourceResponse, offerings map[string]sets.Set[string]) error {
+	if resp == nil || resp.Body == nil {
+		return errors.New("DescribeAvailableResourceWithOptions failed to return any instance types")
+	} else if resp.Body.AvailableZones == nil || len(resp.Body.AvailableZones.AvailableZone) == 0 {
+		return alierrors.WithRequestID(tea.StringValue(resp.Body.RequestId), errors.New("DescribeAvailableResourceWithOptions failed to return any instance types"))
+	}
+
+	for _, az := range resp.Body.AvailableZones.AvailableZone {
+		// TODO: Later, `ClosedWithStock` will be tested to determine if `ClosedWithStock` should be added.
+		// WithStock, ClosedWithStock, WithoutStock, ClosedWithoutStock
+		if *az.StatusCategory != "WithStock" {
+			continue
+		}
+		processAvailableResources(az, offerings)
+	}
 	return nil
 }
 
@@ -307,12 +341,14 @@ func processAvailableResources(az *ecsclient.DescribeAvailableResourceResponseBo
 
 		for _, sr := range ar.SupportedResources.SupportedResource {
 			// TODO: Later, `ClosedWithStock` will be tested to determine if `ClosedWithStock` should be added.
-			if *sr.StatusCategory == "WithStock" { // WithStock, ClosedWithStock, WithoutStock, ClosedWithoutStock
-				if _, ok := instanceTypesOfferings[*sr.Value]; !ok {
-					instanceTypesOfferings[*sr.Value] = sets.New[string]()
-				}
-				instanceTypesOfferings[*sr.Value].Insert(*az.ZoneId)
+			// WithStock, ClosedWithStock, WithoutStock, ClosedWithoutStock
+			if *sr.StatusCategory != "WithStock" {
+				continue
 			}
+			if _, ok := instanceTypesOfferings[*sr.Value]; !ok {
+				instanceTypesOfferings[*sr.Value] = sets.New[string]()
+			}
+			instanceTypesOfferings[*sr.Value].Insert(*az.ZoneId)
 		}
 	}
 }
@@ -365,6 +401,10 @@ func getAllInstanceTypes(client *ecsclient.Client) ([]*ecsclient.DescribeInstanc
 func (p *DefaultProvider) createOfferings(_ context.Context, instanceType string, zones []ZoneData) []cloudprovider.Offering {
 	var offerings []cloudprovider.Offering
 	for _, zone := range zones {
+		if !zone.Available {
+			continue
+		}
+
 		odPrice, odOK := p.pricingProvider.OnDemandPrice(instanceType)
 		spotPrice, spotOK := p.pricingProvider.SpotPrice(instanceType, zone.ID)
 
@@ -375,7 +415,7 @@ func (p *DefaultProvider) createOfferings(_ context.Context, instanceType string
 			offerings = append(offerings, p.createOffering(zone.ID, karpv1.CapacityTypeOnDemand, odPrice, offeringAvailable))
 		}
 
-		if spotOK {
+		if spotOK && zone.SpotAvailable {
 			isUnavailable := p.unavailableOfferings.IsUnavailable(instanceType, zone.ID, karpv1.CapacityTypeSpot)
 			offeringAvailable := !isUnavailable && zone.Available
 

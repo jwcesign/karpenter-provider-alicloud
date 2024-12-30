@@ -22,11 +22,6 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"knative.dev/pkg/logging"
-	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
-)
-
-var (
-	spotKey = key("", "", karpv1.CapacityTypeSpot)
 )
 
 // UnavailableOfferings stores any offerings that return ICE (insufficient capacity errors) when
@@ -56,11 +51,6 @@ func NewUnavailableOfferings() *UnavailableOfferings {
 
 // IsUnavailable returns true if the offering appears in the cache
 func (u *UnavailableOfferings) IsUnavailable(instanceType, zone, capacityType string) bool {
-	if capacityType == karpv1.CapacityTypeSpot {
-		if _, found := u.cache.Get(spotKey); found {
-			return true
-		}
-	}
 	_, found := u.cache.Get(key(instanceType, zone, capacityType))
 	return found
 }
