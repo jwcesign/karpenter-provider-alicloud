@@ -78,7 +78,8 @@ type DefaultProvider struct {
 
 func NewDefaultProvider(ctx context.Context, region string, ecsClient *ecsclient.Client,
 	imageFamilyResolver imagefamily.Resolver, vSwitchProvider vswitch.Provider,
-	ackProvider ack.Provider) *DefaultProvider {
+	ackProvider ack.Provider,
+) *DefaultProvider {
 	p := &DefaultProvider{
 		ecsClient:           ecsClient,
 		region:              region,
@@ -117,6 +118,7 @@ func (p *DefaultProvider) Create(ctx context.Context, nodeClass *v1alpha1.ECSNod
 
 	return NewInstanceFromProvisioningGroup(launchInstance, createAutoProvisioningGroupRequest, p.region), nil
 }
+
 func (p *DefaultProvider) Get(ctx context.Context, id string) (*Instance, error) {
 	if instance, ok := p.instanceCache.Get(id); ok {
 		return instance.(*Instance), nil
@@ -363,7 +365,8 @@ func getTags(ctx context.Context, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *k
 }
 
 func (p *DefaultProvider) launchInstance(ctx context.Context, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *karpv1.NodeClaim, instanceTypes []*cloudprovider.InstanceType,
-	tags map[string]string) (*ecsclient.CreateAutoProvisioningGroupResponseBodyLaunchResultsLaunchResult, *ecsclient.CreateAutoProvisioningGroupRequest, error) {
+	tags map[string]string,
+) (*ecsclient.CreateAutoProvisioningGroupResponseBodyLaunchResultsLaunchResult, *ecsclient.CreateAutoProvisioningGroupRequest, error) {
 	if err := p.checkODFallback(nodeClaim, instanceTypes); err != nil {
 		log.FromContext(ctx).Error(err, "failed while checking on-demand fallback")
 	}
@@ -463,7 +466,8 @@ func resolveKubeletConfiguration(nodeClass *v1alpha1.ECSNodeClass) *v1alpha1.Kub
 }
 
 func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *karpv1.NodeClaim,
-	instanceTypes []*cloudprovider.InstanceType, zonalVSwitchs map[string]*vswitch.VSwitch, capacityType string, tags map[string]string) (*ecsclient.CreateAutoProvisioningGroupRequest, error) {
+	instanceTypes []*cloudprovider.InstanceType, zonalVSwitchs map[string]*vswitch.VSwitch, capacityType string, tags map[string]string,
+) (*ecsclient.CreateAutoProvisioningGroupRequest, error) {
 	requirements := scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...)
 
 	instanceTypes = p.imageFamilyResolver.FilterInstanceTypesBySystemDisk(ctx, nodeClass, instanceTypes)
@@ -475,14 +479,14 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 
 	requirements[karpv1.CapacityTypeLabelKey] = scheduling.NewRequirement(karpv1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, capacityType)
 	var launchTemplateConfigs []*ecsclient.CreateAutoProvisioningGroupRequestLaunchTemplateConfig
-	for index, instanceType := range instanceTypes {
-		if index > maxInstanceTypes-1 {
+	for _, instanceType := range instanceTypes {
+		if len(launchTemplateConfigs) > maxInstanceTypes-1 {
 			break
 		}
 
 		vSwitchID := p.getVSwitchID(instanceType, zonalVSwitchs, requirements, capacityType, nodeClass.Spec.VSwitchSelectionPolicy)
 		if vSwitchID == "" {
-			return nil, errors.New("vSwitchID not found")
+			continue
 		}
 
 		launchTemplateConfig := &ecsclient.CreateAutoProvisioningGroupRequestLaunchTemplateConfig{
@@ -492,6 +496,10 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 		}
 
 		launchTemplateConfigs = append(launchTemplateConfigs, launchTemplateConfig)
+	}
+
+	if len(launchTemplateConfigs) == 0 {
+		return nil, errors.New("no capacity offerings are currently available given the constraints")
 	}
 
 	reqTags := make([]*ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationTag, 0, len(tags))
@@ -580,7 +588,8 @@ func (p *DefaultProvider) checkODFallback(nodeClaim *karpv1.NodeClaim, instanceT
 }
 
 func (p *DefaultProvider) getVSwitchID(instanceType *cloudprovider.InstanceType,
-	zonalVSwitchs map[string]*vswitch.VSwitch, reqs scheduling.Requirements, capacityType string, vSwitchSelectionPolicy string) string {
+	zonalVSwitchs map[string]*vswitch.VSwitch, reqs scheduling.Requirements, capacityType string, vSwitchSelectionPolicy string,
+) string {
 	cheapestVSwitchID := ""
 	cheapestPrice := math.MaxFloat64
 
