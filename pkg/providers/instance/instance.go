@@ -465,6 +465,7 @@ func resolveKubeletConfiguration(nodeClass *v1alpha1.ECSNodeClass) *v1alpha1.Kub
 	return kubeletConfig
 }
 
+//nolint:gocyclo
 func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *karpv1.NodeClaim,
 	instanceTypes []*cloudprovider.InstanceType, zonalVSwitchs map[string]*vswitch.VSwitch, capacityType string, tags map[string]string,
 ) (*ecsclient.CreateAutoProvisioningGroupRequest, error) {
@@ -559,6 +560,17 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 			}
 		}),
 	}
+
+	var dataDisks []*ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk
+	for _, dataDisk := range nodeClass.Spec.DataDisks {
+		dataDisks = append(dataDisks, &ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk{
+			Category:         dataDisk.Category,
+			Size:             dataDisk.Size,
+			Device:           dataDisk.Device,
+			PerformanceLevel: dataDisk.PerformanceLevel,
+		})
+	}
+	createAutoProvisioningGroupRequest.LaunchConfiguration.DataDisk = dataDisks
 
 	if capacityType == karpv1.CapacityTypeSpot {
 		createAutoProvisioningGroupRequest.SpotTargetCapacity = tea.String("1")
