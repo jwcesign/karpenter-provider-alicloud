@@ -24,7 +24,6 @@ import (
 const (
 	ConditionTypeVSwitchesReady      = "VSwitchesReady"
 	ConditionTypeSecurityGroupsReady = "SecurityGroupsReady"
-	ConditionTypeInstanceRAMReady    = "InstanceRAMReady"
 	ConditionTypeImagesReady         = "ImagesReady"
 )
 
@@ -84,7 +83,6 @@ func (in *ECSNodeClass) StatusConditions() status.ConditionSet {
 	return status.NewReadyConditions(
 		ConditionTypeVSwitchesReady,
 		ConditionTypeSecurityGroupsReady,
-		ConditionTypeInstanceRAMReady,
 		ConditionTypeImagesReady,
 	).For(in)
 }

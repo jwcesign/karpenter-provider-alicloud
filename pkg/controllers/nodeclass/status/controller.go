@@ -78,9 +78,6 @@ func (c *Controller) Reconcile(ctx context.Context, nodeClass *v1alpha1.ECSNodeC
 	}
 	stored := nodeClass.DeepCopy()
 
-	// TODO: implement different conditions setup
-	nodeClass.StatusConditions().SetTrue(v1alpha1.ConditionTypeInstanceRAMReady)
-
 	var results []reconcile.Result
 	var errs error
 	for _, reconciler := range []nodeClassStatusReconciler{
