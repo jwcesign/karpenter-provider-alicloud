@@ -3,8 +3,11 @@
 approvers:
 - ringtail
 - jwcesign
-
-reviewers:
 - helen-frank
 - daimaxiaxie
-- IrisIris
+
+reviewers:
+- ringtail
+- jwcesign
+- helen-frank
+- daimaxiaxie
