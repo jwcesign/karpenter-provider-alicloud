@@ -561,16 +561,19 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 		}),
 	}
 
-	var dataDisks []*ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk
-	for _, dataDisk := range nodeClass.Spec.DataDisks {
-		dataDisks = append(dataDisks, &ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk{
-			Category:         dataDisk.Category,
-			Size:             dataDisk.Size,
-			Device:           dataDisk.Device,
-			PerformanceLevel: dataDisk.PerformanceLevel,
+	if nodeClass.Spec.DataDisks != nil && nodeClass.Spec.DataDisksCategories != nil {
+		createAutoProvisioningGroupRequest.LaunchConfiguration.DataDisk = lo.Map(nodeClass.Spec.DataDisks, func(dataDisk v1alpha1.DataDisk, index int) *ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk {
+			return &ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk{
+				Size:   dataDisk.Size,
+				Device: dataDisk.Device,
+			}
+		})
+		createAutoProvisioningGroupRequest.DataDiskConfig = lo.Map(nodeClass.Spec.DataDisksCategories, func(category string, index int) *ecsclient.CreateAutoProvisioningGroupRequestDataDiskConfig {
+			return &ecsclient.CreateAutoProvisioningGroupRequestDataDiskConfig{
+				DiskCategory: &category,
+			}
 		})
 	}
-	createAutoProvisioningGroupRequest.LaunchConfiguration.DataDisk = dataDisks
 
 	if capacityType == karpv1.CapacityTypeSpot {
 		createAutoProvisioningGroupRequest.SpotTargetCapacity = tea.String("1")
