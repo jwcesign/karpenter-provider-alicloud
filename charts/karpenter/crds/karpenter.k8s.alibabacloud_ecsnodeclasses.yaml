@@ -46,6 +46,34 @@ spec:
               ECSNodeClassSpec is the top level specification for the AlibabaCloud Karpenter Provider.
               This will contain the configuration necessary to launch instances in AlibabaCloud.
             properties:
+              dataDiskCategories:
+                description: |-
+                  The category of the data disk (for example, cloud and cloud_ssd).
+                  Different ECS is compatible with different disk category, using array to maximize ECS creation success.
+                  Valid values:"cloud", "cloud_efficiency", "cloud_ssd", "cloud_essd", "cloud_auto", and "cloud_essd_entry"
+                items:
+                  type: string
+                type: array
+              dataDisks:
+                description: DataDisk to be applied to provisioned nodes.
+                items:
+                  properties:
+                    device:
+                      description: Mount point of the data disk.
+                      type: string
+                    size:
+                      description: |-
+                        The size of the data disk. Unit: GiB.
+                        Valid values:
+                          * If you set Category to cloud: 20 to 500.
+                          * If you set Category to other disk categories: 20 to 2048.
+                      format: int32
+                      type: integer
+                      x-kubernetes-validations:
+                      - message: size invalid
+                        rule: self >= 20
+                  type: object
+                type: array
               imageSelectorTerms:
                 description: ImageSelectorTerms is a list of or image selector terms.
                   The terms are ORed.
