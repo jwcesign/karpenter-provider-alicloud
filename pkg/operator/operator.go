@@ -97,21 +97,22 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 	imageResolver := imagefamily.NewDefaultResolver(region, ecsClient, cache.New(alicache.InstanceTypeAvailableDiskTTL, alicache.DefaultCleanupInterval))
 	ackProvider := ack.NewDefaultProvider(clusterID, ackClient, cache.New(alicache.ClusterAttachScriptTTL, alicache.DefaultCleanupInterval))
 
-	instanceProvider := instance.NewDefaultProvider(
-		ctx,
-		region,
-		ecsClient,
-		imageResolver,
-		vSwitchProvider,
-		ackProvider,
-	)
-
 	unavailableOfferingsCache := alicache.NewUnavailableOfferings()
 	instanceTypeProvider := instancetype.NewDefaultProvider(
 		*ecsClient.RegionId, operator.GetClient(), ecsClient,
 		cache.New(alicache.InstanceTypesAndZonesTTL, alicache.DefaultCleanupInterval),
 		unavailableOfferingsCache,
 		pricingProvider, ackProvider)
+
+	instanceProvider := instance.NewDefaultProvider(
+		ctx,
+		region,
+		ecsClient,
+		unavailableOfferingsCache,
+		imageResolver,
+		vSwitchProvider,
+		ackProvider,
+	)
 
 	return ctx, &Operator{
 		Operator: operator,
