@@ -43,6 +43,7 @@ import (
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
+	kcache "github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/cache"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/operator/options"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/imagefamily"
@@ -66,9 +67,10 @@ type Provider interface {
 }
 
 type DefaultProvider struct {
-	ecsClient     *ecsclient.Client
-	region        string
-	instanceCache *cache.Cache
+	ecsClient            *ecsclient.Client
+	region               string
+	instanceCache        *cache.Cache
+	unavailableOfferings *kcache.UnavailableOfferings
 
 	imageFamilyResolver imagefamily.Resolver
 	vSwitchProvider     vswitch.Provider
@@ -76,18 +78,19 @@ type DefaultProvider struct {
 	createLimiter       *rate.Limiter
 }
 
-func NewDefaultProvider(ctx context.Context, region string, ecsClient *ecsclient.Client,
+func NewDefaultProvider(ctx context.Context, region string, ecsClient *ecsclient.Client, unavailableOfferings *kcache.UnavailableOfferings,
 	imageFamilyResolver imagefamily.Resolver, vSwitchProvider vswitch.Provider,
 	ackProvider ack.Provider,
 ) *DefaultProvider {
 	p := &DefaultProvider{
-		ecsClient:           ecsClient,
-		region:              region,
-		instanceCache:       cache.New(instanceCacheExpiration, instanceCacheExpiration),
-		createLimiter:       rate.NewLimiter(rate.Limit(1), options.FromContext(ctx).APGCreationQPS),
-		imageFamilyResolver: imageFamilyResolver,
-		vSwitchProvider:     vSwitchProvider,
-		ackProvider:         ackProvider,
+		ecsClient:            ecsClient,
+		region:               region,
+		instanceCache:        cache.New(instanceCacheExpiration, instanceCacheExpiration),
+		unavailableOfferings: unavailableOfferings,
+		createLimiter:        rate.NewLimiter(rate.Limit(1), options.FromContext(ctx).APGCreationQPS),
+		imageFamilyResolver:  imageFamilyResolver,
+		vSwitchProvider:      vSwitchProvider,
+		ackProvider:          ackProvider,
 	}
 
 	return p
@@ -381,9 +384,11 @@ func (p *DefaultProvider) launchInstance(ctx context.Context, nodeClass *v1alpha
 		return nil, nil, fmt.Errorf("getting provisioning group, %w", err)
 	}
 
+	var resp *ecsclient.CreateAutoProvisioningGroupResponse
 	runtime := &util.RuntimeOptions{}
 
-	resp, err := p.ecsClient.CreateAutoProvisioningGroupWithOptions(createAutoProvisioningGroupRequest, runtime)
+	defer p.updateUnavailableOfferingsCache(ctx, resp, capacityType)
+	resp, err = p.ecsClient.CreateAutoProvisioningGroupWithOptions(createAutoProvisioningGroupRequest, runtime)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating auto provisioning group, %w", err)
 	}
@@ -393,6 +398,29 @@ func (p *DefaultProvider) launchInstance(ctx context.Context, nodeClass *v1alpha
 	}
 
 	return resp.Body.LaunchResults.LaunchResult[0], createAutoProvisioningGroupRequest, nil
+}
+
+func (p *DefaultProvider) updateUnavailableOfferingsCache(ctx context.Context, resp *ecsclient.CreateAutoProvisioningGroupResponse, capacityType string) {
+	if resp == nil || resp.Body == nil || resp.Body.LaunchResults == nil || len(resp.Body.LaunchResults.LaunchResult) == 0 {
+		return
+	}
+
+	for lri := range resp.Body.LaunchResults.LaunchResult {
+		if resp.Body.LaunchResults.LaunchResult[lri] == nil {
+			continue
+		}
+
+		if (tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorCode) == "NoInstanceStock" || tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorCode) == "OperationDenied.NoStock") &&
+			tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].InstanceType) != "" &&
+			tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ZoneId) != "" {
+			p.unavailableOfferings.MarkUnavailable(
+				ctx,
+				tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorMsg),
+				tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].InstanceType),
+				tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ZoneId),
+				capacityType)
+		}
+	}
 }
 
 func createAutoProvisioningGroupResponseHandler(resp *ecsclient.CreateAutoProvisioningGroupResponse) error {
