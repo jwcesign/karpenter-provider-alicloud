@@ -321,7 +321,9 @@ func processAvailableResourcesResponse(resp *ecsclient.DescribeAvailableResource
 	for _, az := range resp.Body.AvailableZones.AvailableZone {
 		// TODO: Later, `ClosedWithStock` will be tested to determine if `ClosedWithStock` should be added.
 		// WithStock, ClosedWithStock, WithoutStock, ClosedWithoutStock
-		if *az.StatusCategory != "WithStock" {
+		// ClosedWithStock means there is available capacity, just the provider will not add more capacity.
+		if tea.StringValue(az.StatusCategory) != "WithStock" &&
+			tea.StringValue(az.StatusCategory) != "ClosedWithStock" {
 			continue
 		}
 		processAvailableResources(az, offerings)
@@ -342,7 +344,9 @@ func processAvailableResources(az *ecsclient.DescribeAvailableResourceResponseBo
 		for _, sr := range ar.SupportedResources.SupportedResource {
 			// TODO: Later, `ClosedWithStock` will be tested to determine if `ClosedWithStock` should be added.
 			// WithStock, ClosedWithStock, WithoutStock, ClosedWithoutStock
-			if *sr.StatusCategory != "WithStock" {
+			// ClosedWithStock means there is available capacity, just the provider will not add more capacity.
+			if tea.StringValue(sr.StatusCategory) != "WithStock" &&
+				tea.StringValue(sr.StatusCategory) != "ClosedWithStock" {
 				continue
 			}
 			if _, ok := instanceTypesOfferings[*sr.Value]; !ok {
