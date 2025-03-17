@@ -185,18 +185,12 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 
 	result := lo.Map(p.instanceTypesInfo, func(i *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType, _ int) *cloudprovider.InstanceType {
 		zoneData := lo.Map(allZones.UnsortedList(), func(zoneID string, _ int) ZoneData {
+			ret := ZoneData{ID: zoneID, Available: true}
 			if !p.instanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID) || !vSwitchsZones.Has(zoneID) {
-				return ZoneData{
-					ID:            zoneID,
-					Available:     false,
-					SpotAvailable: false,
-				}
+				ret.Available = false
 			}
-			return ZoneData{
-				ID:            zoneID,
-				Available:     true,
-				SpotAvailable: p.spotInstanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID),
-			}
+			ret.SpotAvailable = p.spotInstanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID)
+			return ret
 		})
 
 		// !!! Important !!!
@@ -405,10 +399,6 @@ func getAllInstanceTypes(client *ecsclient.Client) ([]*ecsclient.DescribeInstanc
 func (p *DefaultProvider) createOfferings(_ context.Context, instanceType string, zones []ZoneData) []cloudprovider.Offering {
 	var offerings []cloudprovider.Offering
 	for _, zone := range zones {
-		if !zone.Available {
-			continue
-		}
-
 		odPrice, odOK := p.pricingProvider.OnDemandPrice(instanceType)
 		spotPrice, spotOK := p.pricingProvider.SpotPrice(instanceType, zone.ID)
 
@@ -419,9 +409,9 @@ func (p *DefaultProvider) createOfferings(_ context.Context, instanceType string
 			offerings = append(offerings, p.createOffering(zone.ID, karpv1.CapacityTypeOnDemand, odPrice, offeringAvailable))
 		}
 
-		if spotOK && zone.SpotAvailable {
+		if spotOK {
 			isUnavailable := p.unavailableOfferings.IsUnavailable(instanceType, zone.ID, karpv1.CapacityTypeSpot)
-			offeringAvailable := !isUnavailable && zone.Available
+			offeringAvailable := !isUnavailable && zone.SpotAvailable
 
 			offerings = append(offerings, p.createOffering(zone.ID, karpv1.CapacityTypeSpot, spotPrice, offeringAvailable))
 		}
