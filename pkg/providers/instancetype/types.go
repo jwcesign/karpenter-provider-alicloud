@@ -53,8 +53,10 @@ const (
 )
 
 type ZoneData struct {
-	ID            string
-	Available     bool
+	ID string
+	// Available represents OnDemand capacity
+	Available bool
+	// SpotAvailable represents Spot capacity
 	SpotAvailable bool
 }
 
