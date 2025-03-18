@@ -166,9 +166,7 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 	// We don't use this in the cache key since this is produced from our instanceTypesOfferings which we do cache
 	allZones := sets.New[string]()
 	for _, offeringZones := range p.instanceTypesOfferings {
-		for zone := range offeringZones {
-			allZones.Insert(zone)
-		}
+		allZones.Insert(offeringZones.UnsortedList()...)
 	}
 
 	if p.cm.HasChanged("zones", allZones) {
@@ -182,11 +180,13 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 
 	result := lo.Map(p.instanceTypesInfo, func(i *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType, _ int) *cloudprovider.InstanceType {
 		zoneData := lo.Map(allZones.UnsortedList(), func(zoneID string, _ int) ZoneData {
-			ret := ZoneData{ID: zoneID, Available: true}
+			ret := ZoneData{ID: zoneID, Available: true, SpotAvailable: true}
 			if !p.instanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID) || !vSwitchsZones.Has(zoneID) {
 				ret.Available = false
 			}
-			ret.SpotAvailable = p.spotInstanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID)
+			if !p.spotInstanceTypesOfferings[lo.FromPtr(i.InstanceTypeId)].Has(zoneID) || !vSwitchsZones.Has(zoneID) {
+				ret.SpotAvailable = false
+			}
 			return ret
 		})
 
