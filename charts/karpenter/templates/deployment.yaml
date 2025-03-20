@@ -50,8 +50,6 @@ spec:
               value: "{{ .Values.controller.healthProbe.port }}"
             - name: CLUSTER_ID
               value: {{ .Values.controller.settings.clusterID }}
-            - name: CLUSTER_CNI
-              value: {{ .Values.controller.settings.clusterCNI }}
             - name: TELEMETRY_SHARE
               value: "{{ .Values.controller.settings.telemetryShare }}"
             - name: KUBERNETES_MIN_VERSION
