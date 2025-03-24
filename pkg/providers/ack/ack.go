@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -103,6 +104,51 @@ func (p *DefaultProvider) GetClusterCNI(_ context.Context) (string, error) {
 	return p.clusterCNI, nil
 }
 
+// Get the ID of the target nodepool id when DescribeClusterAttachScriptsRequest.
+// If there is no default nodepool, select the nodepool with the most HealthyNodes.
+//
+//nolint:gocyclo
+func (p *DefaultProvider) getTargetNodePoolID(ctx context.Context) (*string, error) {
+	resp, err := p.ackClient.DescribeClusterNodePools(tea.String(p.clusterID), &ackclient.DescribeClusterNodePoolsRequest{})
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Failed to describe cluster nodepools")
+		return nil, err
+	}
+	if resp == nil || resp.Body == nil || resp.Body.Nodepools == nil {
+		return nil, fmt.Errorf("empty describe cluster nodepools response")
+	}
+	if len(resp.Body.Nodepools) == 0 {
+		return nil, fmt.Errorf("no nodepool found")
+	}
+
+	nodepools := resp.Body.Nodepools
+	sort.Slice(nodepools, func(i, j int) bool {
+		if nodepools[i].NodepoolInfo == nil || nodepools[j].NodepoolInfo == nil {
+			return false
+		}
+
+		if nodepools[i].NodepoolInfo.IsDefault != nil && nodepools[j].NodepoolInfo.IsDefault != nil {
+			if *nodepools[i].NodepoolInfo.IsDefault && !*nodepools[j].NodepoolInfo.IsDefault {
+				return true
+			}
+			if !*nodepools[i].NodepoolInfo.IsDefault && *nodepools[j].NodepoolInfo.IsDefault {
+				return false
+			}
+		}
+
+		if nodepools[i].Status == nil || nodepools[j].Status == nil || nodepools[i].Status.HealthyNodes == nil || nodepools[j].Status.HealthyNodes == nil {
+			return false
+		}
+		return *nodepools[i].Status.HealthyNodes > *nodepools[j].Status.HealthyNodes
+	})
+
+	targetNodepool := nodepools[0]
+	if targetNodepool.NodepoolInfo == nil {
+		return nil, fmt.Errorf("target describe cluster nodepool is empty")
+	}
+	return targetNodepool.NodepoolInfo.NodepoolId, nil
+}
+
 func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 	labels map[string]string,
 	kubeletCfg *v1alpha1.KubeletConfiguration) (string, error) {
@@ -110,8 +156,19 @@ func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 		return p.resolveUserData(cachedScript.(string), labels, kubeletCfg), nil
 	}
 
+	nodepoolID, err := p.getTargetNodePoolID(ctx)
+	if err != nil {
+		// Don't return here, we can process when there is no default cluster id.
+		// We need to try to obtain a usable nodepool ID in order to get the cluster attach scripts.
+		// One known scenario is on an ACK cluster with version 1.24, where the user deleted the default nodepool and
+		// created a nodepool with a containerd runtime. The DescribeClusterAttachScriptsRequest api will use the
+		// CRI configuration of the deleted default nodepool, which might be using the Docker runtime.
+		// This could result in nodes failing to register to the new cluster.
+		log.FromContext(ctx).Error(err, "Failed to get default nodepool id")
+	}
 	reqPara := &ackclient.DescribeClusterAttachScriptsRequest{
 		KeepInstanceName: tea.Bool(true),
+		NodepoolId:       nodepoolID,
 	}
 	resp, err := p.ackClient.DescribeClusterAttachScripts(tea.String(p.clusterID), reqPara)
 	if err != nil {
