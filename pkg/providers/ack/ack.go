@@ -104,21 +104,23 @@ func (p *DefaultProvider) GetClusterCNI(_ context.Context) (string, error) {
 	return p.clusterCNI, nil
 }
 
-// Get the ID of the target nodepool id when DescribeClusterAttachScriptsRequest.
-// If there is no default nodepool, select the nodepool with the most HealthyNodes.
+// We need to manually retrieve the runtime configuration of the nodepool, with the default node pool prioritized.
+// If there is no default node pool, we will choose the runtime configuration of the node pool with the most HealthyNodes.
+// In some cases, the DescribeClusterAttachScripts interface may return the Docker runtime in clusters running version 1.24,
+// even though Docker runtime only supports clusters of version 1.22 and below.
 //
 //nolint:gocyclo
-func (p *DefaultProvider) getTargetNodePoolID(ctx context.Context) (*string, error) {
+func (p *DefaultProvider) getClusterAttachRuntimeConfiguration(ctx context.Context) (string, string, error) {
 	resp, err := p.ackClient.DescribeClusterNodePools(tea.String(p.clusterID), &ackclient.DescribeClusterNodePoolsRequest{})
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Failed to describe cluster nodepools")
-		return nil, err
+		return "", "", err
 	}
 	if resp == nil || resp.Body == nil || resp.Body.Nodepools == nil {
-		return nil, fmt.Errorf("empty describe cluster nodepools response")
+		return "", "", fmt.Errorf("empty describe cluster nodepools response")
 	}
 	if len(resp.Body.Nodepools) == 0 {
-		return nil, fmt.Errorf("no nodepool found")
+		return "", "", fmt.Errorf("no nodepool found")
 	}
 
 	nodepools := resp.Body.Nodepools
@@ -143,32 +145,23 @@ func (p *DefaultProvider) getTargetNodePoolID(ctx context.Context) (*string, err
 	})
 
 	targetNodepool := nodepools[0]
-	if targetNodepool.NodepoolInfo == nil {
-		return nil, fmt.Errorf("target describe cluster nodepool is empty")
+	if targetNodepool.KubernetesConfig == nil || targetNodepool.KubernetesConfig.Runtime == nil ||
+		targetNodepool.KubernetesConfig.RuntimeVersion == nil {
+		return "", "", fmt.Errorf("target describe cluster nodepool is empty")
 	}
-	return targetNodepool.NodepoolInfo.NodepoolId, nil
+	return tea.StringValue(targetNodepool.KubernetesConfig.Runtime),
+		tea.StringValue(targetNodepool.KubernetesConfig.RuntimeVersion), nil
 }
 
 func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 	labels map[string]string,
 	kubeletCfg *v1alpha1.KubeletConfiguration) (string, error) {
 	if cachedScript, ok := p.cache.Get(p.clusterID); ok {
-		return p.resolveUserData(cachedScript.(string), labels, kubeletCfg), nil
+		return p.resolveUserData(ctx, cachedScript.(string), labels, kubeletCfg), nil
 	}
 
-	nodepoolID, err := p.getTargetNodePoolID(ctx)
-	if err != nil {
-		// Don't return here, we can process when there is no default cluster id.
-		// We need to try to obtain a usable nodepool ID in order to get the cluster attach scripts.
-		// One known scenario is on an ACK cluster with version 1.24, where the user deleted the default nodepool and
-		// created a nodepool with a containerd runtime. The DescribeClusterAttachScriptsRequest api will use the
-		// CRI configuration of the deleted default nodepool, which might be using the Docker runtime.
-		// This could result in nodes failing to register to the new cluster.
-		log.FromContext(ctx).Error(err, "Failed to get default nodepool id")
-	}
 	reqPara := &ackclient.DescribeClusterAttachScriptsRequest{
 		KeepInstanceName: tea.Bool(true),
-		NodepoolId:       nodepoolID,
 	}
 	resp, err := p.ackClient.DescribeClusterAttachScripts(tea.String(p.clusterID), reqPara)
 	if err != nil {
@@ -183,10 +176,11 @@ func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 	}
 
 	p.cache.SetDefault(p.clusterID, s)
-	return p.resolveUserData(s, labels, kubeletCfg), nil
+	return p.resolveUserData(ctx, s, labels, kubeletCfg), nil
 }
 
-func (p *DefaultProvider) resolveUserData(respStr string,
+func (p *DefaultProvider) resolveUserData(ctx context.Context,
+	respStr string,
 	labels map[string]string,
 	kubeletCfg *v1alpha1.KubeletConfiguration) string {
 	cleanupStr := strings.ReplaceAll(respStr, "\r\n", "")
@@ -207,6 +201,16 @@ func (p *DefaultProvider) resolveUserData(respStr string,
 	// Add taints
 	taint := karpv1.UnregisteredNoExecuteTaint
 	updatedCommand = fmt.Sprintf("%s --taints %s", updatedCommand, taint.ToString())
+
+	runtime, runtimeVersion, err := p.getClusterAttachRuntimeConfiguration(ctx)
+	if err != nil {
+		// If error happen, we do nothing here
+		log.FromContext(ctx).Error(err, "Failed to get cluster attach runtime configuration")
+	} else {
+		// Replace the runtime and runtime-version parameter
+		updatedCommand = regexp.MustCompile(`\s+--runtime\s+\S+\s+--runtime-version\s+\S+`).ReplaceAllString(updatedCommand, "")
+		updatedCommand = fmt.Sprintf("%s --runtime %s --runtime-version %s", updatedCommand, runtime, runtimeVersion)
+	}
 
 	// Add bash script header
 	finalScript := fmt.Sprintf("#!/bin/bash\n\n%s", updatedCommand)
