@@ -1,0 +1,7 @@
+This project is licensed under the Apache License 2.0, with the following additional conditions:
+
+1.Without explicit permission from CloudPilot AI, karpenter-provider-alibabacloud may not be used for large-scale commercial purposes. Typically, managing more than 100 CPU cores is considered a large-scale commercial use case that requires upgrading to a commercial service and is not available for free use.
+2. By contributing to this project, you agree to the following terms:
+   a. If you are an outstanding contributor, you automatically grant the author's company a non-exclusive, perpetual, worldwide, royalty-free license to use, modify, and distribute your contributions.
+   b. The producer can adjust the open-source agreement to be more strict or relaxed as deemed necessary.
+   c. Your contributed code may be used for commercial purposes, including but not limited to its cloud business operations.
