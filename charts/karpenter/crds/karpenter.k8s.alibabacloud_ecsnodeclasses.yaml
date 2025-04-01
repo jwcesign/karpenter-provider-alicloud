@@ -367,6 +367,10 @@ spec:
                   rule: self.all(k, k !='karpenter.sh/nodeclaim')
                 - message: tag contains a restricted tag matching karpenter.k8s.alibabacloud/ecsnodeclass
                   rule: self.all(k, k !='karpenter.k8s.alibabacloud/ecsnodeclass')
+              userData:
+                description: UserData to be applied to the provisioned nodes and executed
+                  before/after the node is registered.
+                type: string
               vSwitchSelectionPolicy:
                 default: cheapest
                 description: VSwitchSelectionPolicy is the policy to select the vSwitch.

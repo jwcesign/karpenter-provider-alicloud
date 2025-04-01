@@ -540,7 +540,7 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 	}
 
 	kubeletCfg := resolveKubeletConfiguration(nodeClass)
-	userData, err := p.ackProvider.GetNodeRegisterScript(ctx, capacityType, nodeClaim, kubeletCfg)
+	userData, err := p.ackProvider.GetNodeRegisterScript(ctx, capacityType, nodeClaim, kubeletCfg, nodeClass.Spec.UserData)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Failed to resolve user data for node")
 		return nil, err
