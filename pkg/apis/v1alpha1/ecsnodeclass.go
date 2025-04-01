@@ -93,6 +93,9 @@ type ECSNodeClassSpec struct {
 	// +kubebuilder:validation:Pattern:="rg-[0-9a-z]+"
 	// +optional
 	ResourceGroupID string `json:"resourceGroupId,omitempty"`
+	// UserData to be applied to the provisioned nodes and executed before/after the node is registered.
+	// +optional
+	UserData *string `json:"userData,omitempty"`
 }
 
 // VSwitchSelectorTerm defines selection logic for a vSwitch used by Karpenter to launch nodes.

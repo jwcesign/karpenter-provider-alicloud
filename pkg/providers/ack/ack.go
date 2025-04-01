@@ -42,7 +42,7 @@ import (
 const defaultNodeLabel = "k8s.aliyun.com=true"
 
 type Provider interface {
-	GetNodeRegisterScript(context.Context, string, *karpv1.NodeClaim, *v1alpha1.KubeletConfiguration) (string, error)
+	GetNodeRegisterScript(context.Context, string, *karpv1.NodeClaim, *v1alpha1.KubeletConfiguration, *string) (string, error)
 	GetClusterCNI(context.Context) (string, error)
 	LivenessProbe(*http.Request) error
 }
@@ -154,10 +154,11 @@ func (p *DefaultProvider) getTargetNodePoolID(ctx context.Context) (*string, err
 func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 	capacityType string,
 	nodeClaim *karpv1.NodeClaim,
-	kubeletCfg *v1alpha1.KubeletConfiguration) (string, error) {
+	kubeletCfg *v1alpha1.KubeletConfiguration,
+	userData *string) (string, error) {
 	labels := lo.Assign(nodeClaim.Labels, map[string]string{karpv1.CapacityTypeLabelKey: capacityType})
 	if cachedScript, ok := p.cache.Get(p.clusterID); ok {
-		return p.resolveUserData(cachedScript.(string), labels, nodeClaim, kubeletCfg), nil
+		return p.resolveUserData(cachedScript.(string), labels, nodeClaim, kubeletCfg, userData), nil
 	}
 
 	nodepoolID, err := p.getTargetNodePoolID(ctx)
@@ -187,13 +188,24 @@ func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 	}
 
 	p.cache.SetDefault(p.clusterID, s)
-	return p.resolveUserData(s, labels, nodeClaim, kubeletCfg), nil
+	return p.resolveUserData(s, labels, nodeClaim, kubeletCfg, userData), nil
 }
 
-func (p *DefaultProvider) resolveUserData(respStr string, labels map[string]string, nodeClaim *karpv1.NodeClaim, kubeletCfg *v1alpha1.KubeletConfiguration) string {
+func (p *DefaultProvider) resolveUserData(respStr string, labels map[string]string, nodeClaim *karpv1.NodeClaim,
+	kubeletCfg *v1alpha1.KubeletConfiguration, userData *string) string {
+	preUserData, postUserData := parseCustomUserData(userData)
+
 	var script bytes.Buffer
 	// Add bash script header
 	script.WriteString("#!/bin/bash\n\n")
+
+	// Insert preUserData if available
+	if preUserData != "" {
+		// Pre-userData: scripts to be executed before node registration
+		script.WriteString("echo \"Executing preUserData...\"\n")
+		script.WriteString(preUserData + "\n\n")
+	}
+
 	// Clean up the input string
 	cleanupStr := strings.ReplaceAll(respStr, "\r\n", "")
 	script.WriteString(cleanupStr + " ")
@@ -203,7 +215,15 @@ func (p *DefaultProvider) resolveUserData(respStr string, labels map[string]stri
 	cfg := convertNodeClassKubeletConfigToACKNodeConfig(kubeletCfg)
 	script.WriteString(fmt.Sprintf("--node-config %s ", cfg))
 	// Add taints
-	script.WriteString(fmt.Sprintf("--taints %s", p.formatTaints(nodeClaim)))
+	script.WriteString(fmt.Sprintf("--taints %s\n\n", p.formatTaints(nodeClaim)))
+
+	// Insert postUserData if available
+	if postUserData != "" {
+		// Post-userData: scripts to be executed after node registration
+		script.WriteString("echo \"Executing postUserData...\"\n")
+		script.WriteString(postUserData + "\n")
+	}
+
 	// Encode to base64
 	return base64.StdEncoding.EncodeToString(script.Bytes())
 }
@@ -251,4 +271,17 @@ func convertNodeClassKubeletConfigToACKNodeConfig(kubeletCfg *v1alpha1.KubeletCo
 		return base64.StdEncoding.EncodeToString([]byte("{}"))
 	}
 	return base64.StdEncoding.EncodeToString(data)
+}
+
+const userDataSeparator = "#===USERDATA_SEPARATOR==="
+
+// By default, the UserData is executed after the node registration is completed.
+// If a user requires tasks to be executed both before and after node registration,
+// they must split the userdata into preUserData and postUserData using a SEPARATOR.
+func parseCustomUserData(userData *string) (string, string) {
+	parts := strings.Split(tea.StringValue(userData), userDataSeparator)
+	if len(parts) == 2 {
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return "", tea.StringValue(userData)
 }
