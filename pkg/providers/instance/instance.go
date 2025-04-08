@@ -484,15 +484,6 @@ func mapToInstanceTypes(instanceTypes []*cloudprovider.InstanceType, images []v1
 	return imageIDs
 }
 
-func resolveKubeletConfiguration(nodeClass *v1alpha1.ECSNodeClass) *v1alpha1.KubeletConfiguration {
-	kubeletConfig := nodeClass.Spec.KubeletConfiguration
-	if kubeletConfig == nil {
-		kubeletConfig = &v1alpha1.KubeletConfiguration{}
-	}
-
-	return kubeletConfig
-}
-
 //nolint:gocyclo
 func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *karpv1.NodeClaim,
 	instanceTypes []*cloudprovider.InstanceType, zonalVSwitchs map[string]*vswitch.VSwitch, capacityType string, tags map[string]string,
@@ -539,8 +530,7 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 		})
 	}
 
-	kubeletCfg := resolveKubeletConfiguration(nodeClass)
-	userData, err := p.ackProvider.GetNodeRegisterScript(ctx, capacityType, nodeClaim, kubeletCfg, nodeClass.Spec.UserData)
+	userData, err := p.imageFamilyResolver.BuildUserData(ctx, capacityType, nodeClass, nodeClaim, &imagefamily.Options{ACKProvider: p.ackProvider})
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Failed to resolve user data for node")
 		return nil, err

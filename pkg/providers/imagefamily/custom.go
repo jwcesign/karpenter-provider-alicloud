@@ -18,23 +18,22 @@ package imagefamily
 
 import (
 	"context"
+	"encoding/base64"
 
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/karpenter/pkg/scheduling"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 )
 
-type Image struct {
-	Name         string
-	ImageID      string
-	Requirements scheduling.Requirements
+type Custom struct {
+	*Options
 }
 
-type Images []Image
+func (c *Custom) GetImages(kubernetesVersion, imageVersion string) (Images, error) {
+	return nil, nil
+}
 
-// ImageFamily can be implemented to override the default logic for generating dynamic launch template parameters
-type ImageFamily interface {
-	GetImages(kubernetesVersion, imageVersion string) (Images, error)
-	UserData(context.Context, *v1alpha1.KubeletConfiguration, []corev1.Taint, map[string]string, *string) (string, error)
+func (c *Custom) UserData(ctx context.Context, kubeletConfig *v1alpha1.KubeletConfiguration, taints []corev1.Taint, labels map[string]string, customUserData *string) (string, error) {
+	return base64.StdEncoding.EncodeToString([]byte(lo.FromPtr(customUserData))), nil
 }

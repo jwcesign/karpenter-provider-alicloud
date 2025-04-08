@@ -35,7 +35,6 @@ import (
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 )
@@ -43,13 +42,15 @@ import (
 const defaultNodeLabel = "k8s.aliyun.com=true"
 
 type Provider interface {
-	GetNodeRegisterScript(context.Context, string, *karpv1.NodeClaim, *v1alpha1.KubeletConfiguration, *string) (string, error)
+	GetNodeRegisterScript(context.Context, map[string]string, []corev1.Taint, *v1alpha1.KubeletConfiguration, *string) (string, error)
 	GetClusterCNI(context.Context) (string, error)
 	LivenessProbe(*http.Request) error
+	GetSupportedImages(string) ([]Image, error)
 }
 
 type DefaultProvider struct {
 	clusterID string
+	region    string
 	ackClient *ackclient.Client
 
 	muClusterCNI sync.RWMutex
@@ -57,9 +58,10 @@ type DefaultProvider struct {
 	cache        *cache.Cache
 }
 
-func NewDefaultProvider(clusterID string, ackClient *ackclient.Client, cache *cache.Cache) *DefaultProvider {
+func NewDefaultProvider(clusterID string, region string, ackClient *ackclient.Client, cache *cache.Cache) *DefaultProvider {
 	return &DefaultProvider{
 		clusterID: clusterID,
+		region:    region,
 		ackClient: ackClient,
 		cache:     cache,
 	}
@@ -105,6 +107,38 @@ func (p *DefaultProvider) GetClusterCNI(_ context.Context) (string, error) {
 	p.muClusterCNI.Unlock()
 
 	return p.clusterCNI, nil
+}
+
+func (p *DefaultProvider) GetSupportedImages(k8sVersion string) ([]Image, error) {
+	// When query, the api ask to remove v from v1.6.0
+	formatVersion := strings.TrimPrefix(k8sVersion, "v")
+	req := &ackclient.DescribeKubernetesVersionMetadataRequest{
+		Region:            tea.String(p.region),
+		ClusterType:       tea.String("ManagedKubernetes"),
+		KubernetesVersion: tea.String(formatVersion),
+	}
+
+	resp, err := p.ackClient.DescribeKubernetesVersionMetadata(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe k8s version metadata %w", err)
+	}
+
+	if resp == nil || resp.Body == nil || len(resp.Body) == 0 {
+		return nil, fmt.Errorf("invalid response when describe k8s version metadata")
+	} else if len(resp.Body[0].Images) == 0 {
+		return nil, fmt.Errorf("no image found in k8s version metadata")
+	}
+	return lo.Map(resp.Body[0].Images, func(item *ackclient.DescribeKubernetesVersionMetadataResponseBodyImages, index int) Image {
+		return Image{
+			ImageID:      tea.StringValue(item.ImageId),
+			ImageName:    tea.StringValue(item.ImageName),
+			Platform:     tea.StringValue(item.Platform),
+			OsVersion:    tea.StringValue(item.OsVersion),
+			ImageType:    tea.StringValue(item.ImageType),
+			OsType:       tea.StringValue(item.OsType),
+			Architecture: tea.StringValue(item.Architecture),
+		}
+	}), nil
 }
 
 // We need to manually retrieve the runtime configuration of the nodepool, with the default node pool prioritized.
@@ -157,13 +191,12 @@ func (p *DefaultProvider) getClusterAttachRuntimeConfiguration(ctx context.Conte
 }
 
 func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
-	capacityType string,
-	nodeClaim *karpv1.NodeClaim,
+	labels map[string]string,
+	taints []corev1.Taint,
 	kubeletCfg *v1alpha1.KubeletConfiguration,
 	userData *string) (string, error) {
-	labels := lo.Assign(nodeClaim.Labels, map[string]string{karpv1.CapacityTypeLabelKey: capacityType})
 	if cachedScript, ok := p.cache.Get(p.clusterID); ok {
-		return p.resolveUserData(cachedScript.(string), labels, nodeClaim, kubeletCfg, userData), nil
+		return p.resolveUserData(cachedScript.(string), labels, taints, kubeletCfg, userData), nil
 	}
 
 	reqPara := &ackclient.DescribeClusterAttachScriptsRequest{
@@ -192,11 +225,12 @@ func (p *DefaultProvider) GetNodeRegisterScript(ctx context.Context,
 			respStr, fmt.Sprintf(" --runtime %s --runtime-version %s", runtime, runtimeVersion))
 	}
 
+
 	p.cache.SetDefault(p.clusterID, respStr)
-	return p.resolveUserData(respStr, labels, nodeClaim, kubeletCfg, userData), nil
+	return p.resolveUserData(respStr, labels, taints, kubeletCfg, userData), nil
 }
 
-func (p *DefaultProvider) resolveUserData(respStr string, labels map[string]string, nodeClaim *karpv1.NodeClaim,
+func (p *DefaultProvider) resolveUserData(respStr string, labels map[string]string, taints []corev1.Taint,
 	kubeletCfg *v1alpha1.KubeletConfiguration, userData *string) string {
 	preUserData, postUserData := parseCustomUserData(userData)
 
@@ -219,7 +253,7 @@ func (p *DefaultProvider) resolveUserData(respStr string, labels map[string]stri
 	cfg := convertNodeClassKubeletConfigToACKNodeConfig(kubeletCfg)
 	script.WriteString(fmt.Sprintf("--node-config %s ", cfg))
 	// Add taints
-	script.WriteString(fmt.Sprintf("--taints %s\n\n", p.formatTaints(nodeClaim)))
+	script.WriteString(fmt.Sprintf("--taints %s\n\n", p.formatTaints(taints)))
 
 	// Insert postUserData if available
 	if postUserData != "" {
@@ -240,19 +274,20 @@ func (p *DefaultProvider) formatLabels(labels map[string]string) string {
 	return labelsFormatted
 }
 
-func (p *DefaultProvider) formatTaints(nodeClaim *karpv1.NodeClaim) string {
-	taints := lo.Flatten([][]corev1.Taint{
-		nodeClaim.Spec.Taints,
-		nodeClaim.Spec.StartupTaints,
-	})
-	if !lo.ContainsBy(taints, func(t corev1.Taint) bool {
-		return t.MatchTaint(&karpv1.UnregisteredNoExecuteTaint)
-	}) {
-		taints = append(taints, karpv1.UnregisteredNoExecuteTaint)
-	}
+func (p *DefaultProvider) formatTaints(taints []corev1.Taint) string {
 	return strings.Join(lo.Map(taints, func(t corev1.Taint, _ int) string {
 		return t.ToString()
 	}), ",")
+}
+
+type Image struct {
+	ImageID      string
+	ImageName    string
+	Platform     string
+	OsVersion    string
+	ImageType    string
+	OsType       string
+	Architecture string
 }
 
 type NodeConfig struct {
