@@ -19,7 +19,6 @@ package imagefamily
 import (
 	"context"
 	"fmt"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
 	"sync"
 
 	ecs "github.com/alibabacloud-go/ecs-20140526/v4/client"
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/scheduling"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/version"
 )
 
