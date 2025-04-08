@@ -49,8 +49,8 @@ func (c *Controller) Reconcile(ctx context.Context, nodeClass *v1alpha1.ECSNodeC
 	stored := nodeClass.DeepCopy()
 
 	if nodeClass.Spec.SystemDisk != nil &&
-		nodeClass.Spec.SystemDisk.Size != nil {
-		nodeClass.Spec.SystemDisk.VolumeSize = resources.Quantity(fmt.Sprintf("%dG", *nodeClass.Spec.SystemDisk.Size))
+		nodeClass.Spec.SystemDisk.Size != nil && nodeClass.Spec.SystemDisk.VolumeSize == nil {
+		nodeClass.Spec.SystemDisk.VolumeSize = resources.Quantity(fmt.Sprintf("%dGi", *nodeClass.Spec.SystemDisk.Size))
 	}
 	if !equality.Semantic.DeepEqual(stored, nodeClass) {
 		if err := c.kubeClient.Patch(ctx, nodeClass, client.MergeFrom(stored)); err != nil {

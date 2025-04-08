@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
+	"sigs.k8s.io/karpenter/pkg/utils/resources"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/utils/alierrors"
@@ -38,7 +39,7 @@ import (
 var DefaultSystemDisk = v1alpha1.SystemDisk{
 	// TODO: Change me, comprehensive ranking based on the pricing
 	Categories: []string{"cloud", "cloud_ssd", "cloud_efficiency", "cloud_essd", "cloud_auto", "cloud_essd_entry"},
-	Size:       tea.Int32(20),
+	VolumeSize: resources.Quantity("20Gi"),
 }
 
 // Options define the static launch template parameters
