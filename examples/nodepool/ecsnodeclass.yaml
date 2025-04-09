@@ -12,9 +12,12 @@ spec:
   systemDisk:
     categories:
       - cloud
+      - cloud_efficiency
       - cloud_ssd
+      - cloud_essd
       - cloud_auto
-    size: 60
+      - cloud_essd_entry
+    volumeSize: 60Gi
   imageSelectorTerms:
     # ContainerOS only support x86_64 linux nodes, and it's faster to initialize
     - alias: ContainerOS

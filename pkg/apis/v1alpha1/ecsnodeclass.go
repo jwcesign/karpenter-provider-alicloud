@@ -226,16 +226,7 @@ type SystemDisk struct {
 	// +optional
 	Categories []string `json:"categories,omitempty"`
 	// Size in `Gi`, `G`, `Ti`, or `T`. You must specify either a snapshot ID or
-	// a volume size. The following are the supported volumes sizes for each volume
-	// type:
-	//
-	//    * gp2 and gp3: 1-16,384
-	//
-	//    * io1 and io2: 4-16,384
-	//
-	//    * st1 and sc1: 125-16,384
-	//
-	//    * standard: 1-1,024
+	// a volume size.
 	// + TODO: Add the CEL resources.quantity type after k8s 1.29
 	// + https://github.com/kubernetes/apiserver/commit/b137c256373aec1c5d5810afbabb8932a19ecd2a#diff-838176caa5882465c9d6061febd456397a3e2b40fb423ed36f0cabb1847ecb4dR190
 	// +kubebuilder:validation:Pattern:="^((?:[1-9][0-9]{0,3}|[1-4][0-9]{4}|[5][0-8][0-9]{3}|59000)Gi|(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|[6][0-3][0-9]{3}|64000)G|([1-9]||[1-5][0-7]|58)Ti|([1-9]||[1-5][0-9]|6[0-3]|64)T)$"
@@ -249,7 +240,6 @@ type SystemDisk struct {
 	//   * If you set Category to other disk categories: 20 to 2048.
 	//
 	// +kubebuilder:validation:XValidation:message="size invalid",rule="self >= 20"
-	// +kubebuilder:default:=20
 	// +optional
 	Size *int32 `json:"size,omitempty"`
 	// The performance level of the ESSD to use as the system disk. Default value: PL0.
@@ -265,13 +255,16 @@ type SystemDisk struct {
 }
 
 type DataDisk struct {
-	// The size of the data disk. Unit: GiB.
-	// Valid values:
-	//   * If you set Category to cloud: 20 to 500.
-	//   * If you set Category to other disk categories: 20 to 2048.
-	//
-	// +kubebuilder:validation:XValidation:message="size invalid",rule="self >= 20"
-	Size *int32 `json:"size,omitempty"`
+	// Size in `Gi`, `G`, `Ti`, or `T`. You must specify either a snapshot ID or
+	// a volume size.
+	// + TODO: Add the CEL resources.quantity type after k8s 1.29
+	// + https://github.com/kubernetes/apiserver/commit/b137c256373aec1c5d5810afbabb8932a19ecd2a#diff-838176caa5882465c9d6061febd456397a3e2b40fb423ed36f0cabb1847ecb4dR190
+	// +kubebuilder:validation:Pattern:="^((?:[1-9][0-9]{0,3}|[1-4][0-9]{4}|[5][0-8][0-9]{3}|59000)Gi|(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|[6][0-3][0-9]{3}|64000)G|([1-9]||[1-5][0-7]|58)Ti|([1-9]||[1-5][0-9]|6[0-3]|64)T)$"
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type:=string
+	// +kubebuilder:default:="20Gi"
+	// +optional
+	VolumeSize *resource.Quantity `json:"volumeSize,omitempty" hash:"string"`
 	// Mount point of the data disk.
 	// +optional
 	Device *string `json:"device,omitempty"`
@@ -330,4 +323,21 @@ type ECSNodeClassList struct {
 
 func ImageFamilyFromAlias(alias string) string {
 	return alias
+}
+
+func (sd *SystemDisk) GetGiBSize() int32 {
+	if sd.VolumeSize != nil {
+		return int32(sd.VolumeSize.Value() / (1024 * 1024 * 1024)) // #nosec G115
+	}
+	if sd.Size != nil {
+		return *sd.Size
+	}
+	return 0
+}
+
+func (dd *DataDisk) GetGiBSize() int32 {
+	if dd.VolumeSize != nil {
+		return int32(dd.VolumeSize.Value() / (1024 * 1024 * 1024)) // #nosec G115
+	}
+	return 0
 }

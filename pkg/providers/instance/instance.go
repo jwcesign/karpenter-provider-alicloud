@@ -53,9 +53,10 @@ import (
 
 const (
 	// TODO: After that open up the configuration options
-	instanceTypeFlexibilityThreshold = 5 // falling back to on-demand without flexibility risks insufficient capacity errors
-	maxInstanceTypes                 = 20
-	instanceCacheExpiration          = 15 * time.Second
+	instanceTypeFlexibilityThreshold       = 5 // falling back to on-demand without flexibility risks insufficient capacity errors
+	maxInstanceTypes                       = 20
+	instanceCacheExpiration                = 15 * time.Second
+	defaultDataDiskSize              int32 = 20
 )
 
 type Provider interface {
@@ -554,12 +555,16 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 	if systemDisk == nil {
 		systemDisk = imagefamily.DefaultSystemDisk.DeepCopy()
 	}
+	if systemDisk.VolumeSize == nil {
+		systemDisk.VolumeSize = imagefamily.DefaultSystemDisk.VolumeSize
+	}
 
 	imageID, ok := mappedImages[instanceTypes[0].Name]
 	if !ok {
 		return nil, errors.New("matching image not found")
 	}
 
+	// Convert bytes to GiB
 	createAutoProvisioningGroupRequest := &ecsclient.CreateAutoProvisioningGroupRequest{
 		RegionId:                        tea.String(p.region),
 		TotalTargetCapacity:             tea.String("1"),
@@ -574,7 +579,7 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 			UserData:         tea.String(userData),
 			ResourceGroupId:  tea.String(nodeClass.Spec.ResourceGroupID),
 			SecurityGroupIds: securityGroupIDs,
-			SystemDiskSize:   systemDisk.Size,
+			SystemDiskSize:   tea.Int32(systemDisk.GetGiBSize()),
 			Tag:              reqTags,
 		},
 		// Add this tag to auto-provisioning-group, alibabacloud will monitor the requests and enhance the stability
@@ -592,7 +597,7 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 	if nodeClass.Spec.DataDisks != nil && nodeClass.Spec.DataDisksCategories != nil {
 		createAutoProvisioningGroupRequest.LaunchConfiguration.DataDisk = lo.Map(nodeClass.Spec.DataDisks, func(dataDisk v1alpha1.DataDisk, index int) *ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk {
 			return &ecsclient.CreateAutoProvisioningGroupRequestLaunchConfigurationDataDisk{
-				Size:   dataDisk.Size,
+				Size:   tea.Int32(max(defaultDataDiskSize, dataDisk.GetGiBSize())),
 				Device: dataDisk.Device,
 			}
 		})
