@@ -31,6 +31,7 @@ const (
 
 // ECSNodeClassSpec is the top level specification for the AlibabaCloud Karpenter Provider.
 // This will contain the configuration necessary to launch instances in AlibabaCloud.
+// +kubebuilder:validation:XValidation:rule="!(has(self.passwordInherit) ? (self.passwordInherit ? has(self.password) : false) : false)",message="password cannot be set when passwordInherit is true"
 type ECSNodeClassSpec struct {
 	// VSwitchSelectorTerms is a list of or vSwitch selector terms. The terms are ORed.
 	// +kubebuilder:validation:XValidation:message="vSwitchSelectorTerms cannot be empty",rule="self.size() != 0"
@@ -96,6 +97,18 @@ type ECSNodeClassSpec struct {
 	// UserData to be applied to the provisioned nodes and executed before/after the node is registered.
 	// +optional
 	UserData *string `json:"userData,omitempty"`
+	// Password is the password for ecs for root.
+	// +kubebuilder:validation:Pattern=`^[A-Za-z\d~!@#$%^&*()_+\-=\[\]{}|\\:;"'<>,.?/]{8,30}$`
+	//+optional
+	Password string `json:"password,omitempty"`
+	// KeyPairName is the key pair used when creating an ECS instance for root.
+	// +kubebuilder:validation:Pattern=`^[A-Za-z][A-Za-z\d._:-]{1,127}$`
+	// +optional
+	KeyPairName string `json:"keyPairName,omitempty"`
+	// If PasswordInherit is true will use the password preset by os image.
+	// +kubebuilder:default:=false
+	// +optional
+	PasswordInherit bool `json:"passwordInherit,omitempty"`
 }
 
 // VSwitchSelectorTerm defines selection logic for a vSwitch used by Karpenter to launch nodes.
