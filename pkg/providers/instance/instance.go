@@ -581,6 +581,9 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 			SecurityGroupIds: securityGroupIDs,
 			SystemDiskSize:   tea.Int32(systemDisk.GetGiBSize()),
 			Tag:              reqTags,
+			KeyPairName:      tea.String(nodeClass.Spec.KeyPairName),
+			Password:         tea.String(nodeClass.Spec.Password),
+			PasswordInherit:  tea.Bool(nodeClass.Spec.PasswordInherit),
 		},
 		// Add this tag to auto-provisioning-group, alibabacloud will monitor the requests and enhance the stability
 		Tag: []*ecsclient.CreateAutoProvisioningGroupRequestTag{
