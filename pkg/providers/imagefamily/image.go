@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/scheduling"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/version"
 )
 
@@ -41,7 +41,7 @@ type Provider interface {
 type DefaultProvider struct {
 	region    string
 	ecsClient *ecs.Client
-	ack       ack.Provider
+	ack       cluster.Provider
 
 	sync.Mutex
 	cache *cache.Cache
@@ -49,7 +49,7 @@ type DefaultProvider struct {
 	versionProvider version.Provider
 }
 
-func NewDefaultProvider(region string, ecsClient *ecs.Client, ackProvider ack.Provider,
+func NewDefaultProvider(region string, ecsClient *ecs.Client, ackProvider cluster.Provider,
 	versionProvider version.Provider, cache *cache.Cache) *DefaultProvider {
 	return &DefaultProvider{
 		region:    region,

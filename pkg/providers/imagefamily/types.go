@@ -17,12 +17,7 @@ limitations under the License.
 package imagefamily
 
 import (
-	"context"
-
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
-
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 )
 
 type Image struct {
@@ -36,5 +31,4 @@ type Images []Image
 // ImageFamily can be implemented to override the default logic for generating dynamic launch template parameters
 type ImageFamily interface {
 	GetImages(kubernetesVersion, imageVersion string) (Images, error)
-	UserData(context.Context, *v1alpha1.KubeletConfiguration, []corev1.Taint, map[string]string, *string) (string, error)
 }

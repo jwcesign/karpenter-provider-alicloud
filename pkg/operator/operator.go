@@ -30,7 +30,7 @@ import (
 
 	alicache "github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/cache"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/operator/options"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/imagefamily"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/instance"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/instancetype"
@@ -81,7 +81,7 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 		log.FromContext(ctx).Error(err, "Failed to create ACK client")
 		os.Exit(1)
 	}
-	clusterID := options.FromContext(ctx).ClusterID
+
 	region := *ecsClient.RegionId
 
 	pricingProvider, err := pricing.NewDefaultProvider(ctx, region)
@@ -93,8 +93,8 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 	versionProvider := version.NewDefaultProvider(operator.KubernetesInterface, cache.New(alicache.KubernetesVersionTTL, alicache.DefaultCleanupInterval))
 	vSwitchProvider := vswitch.NewDefaultProvider(region, vpcClient, cache.New(alicache.DefaultTTL, alicache.DefaultCleanupInterval), cache.New(alicache.AvailableIPAddressTTL, alicache.DefaultCleanupInterval))
 	securityGroupProvider := securitygroup.NewDefaultProvider(region, ecsClient, cache.New(alicache.DefaultTTL, alicache.DefaultCleanupInterval))
-	ackProvider := ack.NewDefaultProvider(clusterID, region, ackClient, cache.New(alicache.ClusterAttachScriptTTL, alicache.DefaultCleanupInterval))
-	imageProvider := imagefamily.NewDefaultProvider(region, ecsClient, ackProvider, versionProvider, cache.New(alicache.DefaultTTL, alicache.DefaultCleanupInterval))
+	clusterProvider := cluster.NewClusterProvider(ctx, ackClient, region)
+	imageProvider := imagefamily.NewDefaultProvider(region, ecsClient, clusterProvider, versionProvider, cache.New(alicache.DefaultTTL, alicache.DefaultCleanupInterval))
 	imageResolver := imagefamily.NewDefaultResolver(region, ecsClient, cache.New(alicache.InstanceTypeAvailableDiskTTL, alicache.DefaultCleanupInterval))
 
 	unavailableOfferingsCache := alicache.NewUnavailableOfferings()
@@ -102,7 +102,7 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 		*ecsClient.RegionId, ecsClient,
 		cache.New(alicache.InstanceTypesAndZonesTTL, alicache.DefaultCleanupInterval),
 		unavailableOfferingsCache,
-		pricingProvider, ackProvider)
+		pricingProvider, clusterProvider)
 
 	instanceProvider := instance.NewDefaultProvider(
 		ctx,
@@ -111,7 +111,7 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 		unavailableOfferingsCache,
 		imageResolver,
 		vSwitchProvider,
-		ackProvider,
+		clusterProvider,
 	)
 
 	return ctx, &Operator{

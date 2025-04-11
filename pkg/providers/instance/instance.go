@@ -45,7 +45,7 @@ import (
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 	kcache "github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/cache"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/operator/options"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/imagefamily"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/vswitch"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/utils/alierrors"
@@ -74,13 +74,13 @@ type DefaultProvider struct {
 
 	imageFamilyResolver imagefamily.Resolver
 	vSwitchProvider     vswitch.Provider
-	ackProvider         ack.Provider
+	ackProvider         cluster.Provider
 	createLimiter       *rate.Limiter
 }
 
 func NewDefaultProvider(ctx context.Context, region string, ecsClient *ecsclient.Client, unavailableOfferings *kcache.UnavailableOfferings,
 	imageFamilyResolver imagefamily.Resolver, vSwitchProvider vswitch.Provider,
-	ackProvider ack.Provider,
+	ackProvider cluster.Provider,
 ) *DefaultProvider {
 	p := &DefaultProvider{
 		ecsClient:            ecsClient,

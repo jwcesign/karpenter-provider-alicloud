@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/utils/alierrors"
 )
 
@@ -47,7 +47,7 @@ var DefaultSystemDisk = v1alpha1.SystemDisk{
 
 // Options for ImageFamily
 type Options struct {
-	ACKProvider ack.Provider
+	ACKProvider cluster.Provider
 }
 
 type InstanceTypeAvailableSystemDisk struct {

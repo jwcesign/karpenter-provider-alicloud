@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/scheduling"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/ack"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 )
 
 var (
@@ -58,7 +58,7 @@ func (a *AlibabaCloudLinux3) UserData(ctx context.Context, kubeletConfig *v1alph
 	return a.ACKProvider.GetNodeRegisterScript(ctx, labels, taints, kubeletConfig, customUserData)
 }
 
-func alibabaCloudLinuxResolveImages(im ack.Image) (Image, error) {
+func alibabaCloudLinuxResolveImages(im cluster.Image) (Image, error) {
 	// not support i386
 	arch, ok := v1alpha1.AlibabaCloudToKubeArchitectures[im.Architecture]
 	if !ok {
