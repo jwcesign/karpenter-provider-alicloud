@@ -73,7 +73,7 @@ func (a *ACKManaged) GetClusterCNI(_ context.Context) (string, error) {
 		return clusterCNI, nil
 	}
 
-	response, err := a.ackClient.DescribeClusterDetail(tea.String(p.clusterID))
+	response, err := a.ackClient.DescribeClusterDetail(tea.String(a.clusterID))
 	if err != nil {
 		return "", fmt.Errorf("failed to describe cluster: %w", err)
 	}
