@@ -19,9 +19,6 @@ package imagefamily
 import (
 	"context"
 	"fmt"
-	"github.com/samber/lo"
-	corev1 "k8s.io/api/core/v1"
-	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sync"
 
 	ecs "github.com/alibabacloud-go/ecs-20140526/v4/client"
@@ -35,7 +32,6 @@ import (
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/utils/alierrors"
 )
 
@@ -47,7 +43,6 @@ var DefaultSystemDisk = v1alpha1.SystemDisk{
 
 // Options for ImageFamily
 type Options struct {
-	ACKProvider cluster.Provider
 }
 
 type InstanceTypeAvailableSystemDisk struct {
@@ -78,7 +73,6 @@ func (s *InstanceTypeAvailableSystemDisk) Compatible(systemDisks []string) bool 
 
 type Resolver interface {
 	FilterInstanceTypesBySystemDisk(context.Context, *v1alpha1.ECSNodeClass, []*cloudprovider.InstanceType) []*cloudprovider.InstanceType
-	BuildUserData(context.Context, string, *v1alpha1.ECSNodeClass, *karpv1.NodeClaim, *Options) (string, error)
 }
 
 // DefaultResolver is able to fill-in dynamic launch template parameters
@@ -190,32 +184,4 @@ func (r *DefaultResolver) describeAvailableSystemDisk(request *ecs.DescribeAvail
 		}
 	}
 	return nil
-}
-
-func (r *DefaultResolver) BuildUserData(ctx context.Context, capacityType string, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *karpv1.NodeClaim, options *Options) (string, error) {
-	kubeletCfg := resolveKubeletConfiguration(nodeClass)
-	imageFamily := GetImageFamily(nodeClass.ImageFamily(), options)
-	if imageFamily == nil {
-		return "", fmt.Errorf("ImageFamily not found")
-	}
-	labels := lo.Assign(nodeClaim.Labels, map[string]string{karpv1.CapacityTypeLabelKey: capacityType})
-	taints := lo.Flatten([][]corev1.Taint{
-		nodeClaim.Spec.Taints,
-		nodeClaim.Spec.StartupTaints,
-	})
-	if !lo.ContainsBy(taints, func(t corev1.Taint) bool {
-		return t.MatchTaint(&karpv1.UnregisteredNoExecuteTaint)
-	}) {
-		taints = append(taints, karpv1.UnregisteredNoExecuteTaint)
-	}
-	return imageFamily.UserData(ctx, kubeletCfg, taints, labels, nodeClass.Spec.UserData)
-}
-
-func resolveKubeletConfiguration(nodeClass *v1alpha1.ECSNodeClass) *v1alpha1.KubeletConfiguration {
-	kubeletConfig := nodeClass.Spec.KubeletConfiguration
-	if kubeletConfig == nil {
-		kubeletConfig = &v1alpha1.KubeletConfiguration{}
-	}
-
-	return kubeletConfig
 }

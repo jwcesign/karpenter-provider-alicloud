@@ -74,13 +74,13 @@ type DefaultProvider struct {
 
 	imageFamilyResolver imagefamily.Resolver
 	vSwitchProvider     vswitch.Provider
-	ackProvider         cluster.Provider
+	clusterProvider     cluster.Provider
 	createLimiter       *rate.Limiter
 }
 
 func NewDefaultProvider(ctx context.Context, region string, ecsClient *ecsclient.Client, unavailableOfferings *kcache.UnavailableOfferings,
 	imageFamilyResolver imagefamily.Resolver, vSwitchProvider vswitch.Provider,
-	ackProvider cluster.Provider,
+	clusterProvider cluster.Provider,
 ) *DefaultProvider {
 	p := &DefaultProvider{
 		ecsClient:            ecsClient,
@@ -90,7 +90,7 @@ func NewDefaultProvider(ctx context.Context, region string, ecsClient *ecsclient
 		createLimiter:        rate.NewLimiter(rate.Limit(1), options.FromContext(ctx).APGCreationQPS),
 		imageFamilyResolver:  imageFamilyResolver,
 		vSwitchProvider:      vSwitchProvider,
-		ackProvider:          ackProvider,
+		clusterProvider:      clusterProvider,
 	}
 
 	return p
@@ -530,7 +530,7 @@ func (p *DefaultProvider) getProvisioningGroup(ctx context.Context, nodeClass *v
 		})
 	}
 
-	userData, err := p.imageFamilyResolver.BuildUserData(ctx, capacityType, nodeClass, nodeClaim, &imagefamily.Options{ACKProvider: p.ackProvider})
+	userData, err := p.buildUserData(ctx, capacityType, nodeClass, nodeClaim)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Failed to resolve user data for node")
 		return nil, err
@@ -656,4 +656,28 @@ func (p *DefaultProvider) syncAllInstances(instances []*Instance) {
 	for _, instance := range instances {
 		p.instanceCache.Set(instance.ID, instance, cache.DefaultExpiration)
 	}
+}
+
+func (p *DefaultProvider) buildUserData(ctx context.Context, capacityType string, nodeClass *v1alpha1.ECSNodeClass, nodeClaim *karpv1.NodeClaim) (string, error) {
+	kubeletCfg := resolveKubeletConfiguration(nodeClass)
+	labels := lo.Assign(nodeClaim.Labels, map[string]string{karpv1.CapacityTypeLabelKey: capacityType})
+	taints := lo.Flatten([][]corev1.Taint{
+		nodeClaim.Spec.Taints,
+		nodeClaim.Spec.StartupTaints,
+	})
+	if !lo.ContainsBy(taints, func(t corev1.Taint) bool {
+		return t.MatchTaint(&karpv1.UnregisteredNoExecuteTaint)
+	}) {
+		taints = append(taints, karpv1.UnregisteredNoExecuteTaint)
+	}
+	return p.clusterProvider.UserData(ctx, labels, taints, kubeletCfg, nodeClass.Spec.UserData)
+}
+
+func resolveKubeletConfiguration(nodeClass *v1alpha1.ECSNodeClass) *v1alpha1.KubeletConfiguration {
+	kubeletConfig := nodeClass.Spec.KubeletConfiguration
+	if kubeletConfig == nil {
+		kubeletConfig = &v1alpha1.KubeletConfiguration{}
+	}
+
+	return kubeletConfig
 }

@@ -54,7 +54,7 @@ type DefaultProvider struct {
 	region          string
 	ecsClient       *ecsclient.Client
 	pricingProvider pricing.Provider
-	ackProvider     cluster.Provider
+	clusterProvider cluster.Provider
 
 	// Values stored *before* considering insufficient capacity errors from the unavailableOfferings cache.
 	// Fully initialized Instance Types are also cached based on the set of all instance types, zones, unavailableOfferings cache,
@@ -80,12 +80,12 @@ type DefaultProvider struct {
 
 func NewDefaultProvider(region string, ecsClient *ecsclient.Client,
 	instanceTypesCache *cache.Cache, unavailableOfferingsCache *kcache.UnavailableOfferings,
-	pricingProvider pricing.Provider, ackProvider cluster.Provider) *DefaultProvider {
+	pricingProvider pricing.Provider, clusterProvider cluster.Provider) *DefaultProvider {
 	return &DefaultProvider{
 		ecsClient:                  ecsClient,
 		region:                     region,
 		pricingProvider:            pricingProvider,
-		ackProvider:                ackProvider,
+		clusterProvider:            clusterProvider,
 		instanceTypesInfo:          []*ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType{},
 		instanceTypesOfferings:     map[string]sets.Set[string]{},
 		spotInstanceTypesOfferings: map[string]sets.Set[string]{},
@@ -97,7 +97,7 @@ func NewDefaultProvider(region string, ecsClient *ecsclient.Client,
 }
 
 func (p *DefaultProvider) LivenessProbe(req *http.Request) error {
-	if err := p.ackProvider.LivenessProbe(req); err != nil {
+	if err := p.clusterProvider.LivenessProbe(req); err != nil {
 		return err
 	}
 	return p.pricingProvider.LivenessProbe(req)
@@ -173,7 +173,7 @@ func (p *DefaultProvider) List(ctx context.Context, kc *v1alpha1.KubeletConfigur
 		log.FromContext(ctx).WithValues("zones", allZones.UnsortedList()).V(1).Info("discovered zones")
 	}
 
-	clusterCNI, err := p.ackProvider.GetClusterCNI(ctx)
+	clusterCNI, err := p.clusterProvider.GetClusterCNI(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster CNI: %w", err)
 	}
@@ -219,7 +219,7 @@ func (p *DefaultProvider) UpdateInstanceTypes(ctx context.Context) error {
 		return err
 	}
 
-	clusterCNI, err := p.ackProvider.GetClusterCNI(ctx)
+	clusterCNI, err := p.clusterProvider.GetClusterCNI(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster CNI: %w", err)
 	}
@@ -228,7 +228,7 @@ func (p *DefaultProvider) UpdateInstanceTypes(ctx context.Context) error {
 		func(item *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType, index int) bool {
 			switch clusterCNI {
 			// TODO: support other network type, please check https://help.aliyun.com/zh/ack/ack-managed-and-ack-dedicated/user-guide/container-network/?spm=a2c4g.11186623.help-menu-85222.d_2_4_3.6d501109uQI315&scm=20140722.H_195424._.OR_help-V_1
-			case ClusterCNITypeTerway:
+			case cluster.ClusterCNITypeTerway:
 				maxENIPods := (tea.Int32Value(item.EniQuantity) - 1) * tea.Int32Value(item.EniPrivateIpAddressQuantity)
 				return maxENIPods >= TerwayMinENIRequirements
 			default:

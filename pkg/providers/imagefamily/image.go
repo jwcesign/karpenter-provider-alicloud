@@ -41,22 +41,23 @@ type Provider interface {
 type DefaultProvider struct {
 	region    string
 	ecsClient *ecs.Client
-	ack       cluster.Provider
 
 	sync.Mutex
 	cache *cache.Cache
 
+	clusterProvider cluster.Provider
 	versionProvider version.Provider
 }
 
-func NewDefaultProvider(region string, ecsClient *ecs.Client, ackProvider cluster.Provider,
+func NewDefaultProvider(region string, ecsClient *ecs.Client, clusterProvider cluster.Provider,
 	versionProvider version.Provider, cache *cache.Cache) *DefaultProvider {
 	return &DefaultProvider{
 		region:    region,
 		ecsClient: ecsClient,
-		ack:       ackProvider,
 
-		cache:           cache,
+		cache: cache,
+
+		clusterProvider: clusterProvider,
 		versionProvider: versionProvider,
 	}
 }
@@ -89,17 +90,21 @@ func (p *DefaultProvider) getImages(ctx context.Context, nodeClass *v1alpha1.ECS
 	if err != nil {
 		return nil, err
 	}
+	supportedImages, err := p.clusterProvider.GetSupportedImages(kubernetesVersion)
+	if err != nil {
+		return nil, err
+	}
 	images := map[uint64]Image{}
 	for _, selectorTerm := range nodeClass.Spec.ImageSelectorTerms {
 		var ims Images
 		var err error
 		if selectorTerm.Alias != "" {
 			alias := v1alpha1.NewAlias(selectorTerm.Alias)
-			imageFamily := GetImageFamily(selectorTerm.Alias, &Options{ACKProvider: p.ack})
+			imageFamily := GetImageFamily(selectorTerm.Alias, nil)
 			if imageFamily == nil {
 				return nil, fmt.Errorf("unsupported image family %s", selectorTerm.Alias)
 			}
-			ims, err = imageFamily.GetImages(kubernetesVersion, alias.Version)
+			ims, err = imageFamily.GetImages(supportedImages, kubernetesVersion, alias.Version)
 			if err != nil {
 				return nil, err
 			}

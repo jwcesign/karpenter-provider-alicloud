@@ -17,6 +17,7 @@ package instancetype
 import (
 	"context"
 	"fmt"
+
 	"math"
 	"regexp"
 	"strconv"
@@ -34,6 +35,7 @@ import (
 
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/operator/options"
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/imagefamily"
 )
 
@@ -47,9 +49,6 @@ const (
 	TerwayMinENIRequirements = 11
 	BaseHostNetworkPods      = 3
 	FlannelDefaultPods       = 256
-
-	ClusterCNITypeTerway  = "terway-eniip"
-	ClusterCNITypeFlannel = "Flannel"
 )
 
 type ZoneData struct {
@@ -280,10 +279,10 @@ func pods(_ context.Context,
 	case maxPods != nil:
 		count = int64(lo.FromPtr(maxPods))
 	// TODO: support other network type, please check https://help.aliyun.com/zh/ack/ack-managed-and-ack-dedicated/user-guide/container-network/?spm=a2c4g.11186623.help-menu-85222.d_2_4_3.6d501109uQI315&scm=20140722.H_195424._.OR_help-V_1
-	case clusterCNI == ClusterCNITypeTerway:
+	case clusterCNI == cluster.ClusterCNITypeTerway:
 		maxENIPods := (tea.Int32Value(info.EniQuantity) - 1) * tea.Int32Value(info.EniPrivateIpAddressQuantity)
 		count = int64(maxENIPods + BaseHostNetworkPods)
-	case clusterCNI == ClusterCNITypeFlannel:
+	case clusterCNI == cluster.ClusterCNITypeFlannel:
 		count = FlannelDefaultPods
 	default:
 		count = v1alpha1.KubeletMaxPods

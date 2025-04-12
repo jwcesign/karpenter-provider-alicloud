@@ -17,7 +17,6 @@ limitations under the License.
 package imagefamily
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 
@@ -37,13 +36,9 @@ type AlibabaCloudLinux3 struct {
 	*Options
 }
 
-func (a *AlibabaCloudLinux3) GetImages(kubernetesVersion, imageVersion string) (Images, error) {
-	images, err := a.ACKProvider.GetSupportedImages(kubernetesVersion)
-	if err != nil {
-		return nil, err
-	}
+func (a *AlibabaCloudLinux3) GetImages(supprotedImages []cluster.Image, kubernetesVersion, imageVersion string) (Images, error) {
 	var ret Images
-	for _, im := range images {
+	for _, im := range supprotedImages {
 		if !alibabaCloudLinux3ImageIDRegex.Match([]byte(im.ImageID)) {
 			continue
 		}
@@ -52,10 +47,6 @@ func (a *AlibabaCloudLinux3) GetImages(kubernetesVersion, imageVersion string) (
 		}
 	}
 	return ret, nil
-}
-
-func (a *AlibabaCloudLinux3) UserData(ctx context.Context, kubeletConfig *v1alpha1.KubeletConfiguration, taints []corev1.Taint, labels map[string]string, customUserData *string) (string, error) {
-	return a.ACKProvider.GetNodeRegisterScript(ctx, labels, taints, kubeletConfig, customUserData)
 }
 
 func alibabaCloudLinuxResolveImages(im cluster.Image) (Image, error) {

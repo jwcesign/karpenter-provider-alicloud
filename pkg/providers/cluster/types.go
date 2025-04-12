@@ -29,6 +29,11 @@ import (
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/operator/options"
 )
 
+const (
+	ClusterCNITypeTerway  = "terway-eniip"
+	ClusterCNITypeFlannel = "Flannel"
+)
+
 // FeatureFlags describes whether the features below are enabled
 type FeatureFlags struct {
 	PodsPerCoreEnabled           bool
@@ -47,6 +52,7 @@ type Image struct {
 
 // Provider can be implemented to generate userdata
 type Provider interface {
+	ClusterType() string
 	UserData(context.Context, map[string]string, []corev1.Taint, *v1alpha1.KubeletConfiguration, *string) (string, error)
 	GetClusterCNI(context.Context) (string, error)
 	LivenessProbe(*http.Request) error
@@ -56,5 +62,8 @@ type Provider interface {
 
 func NewClusterProvider(ctx context.Context, ackClient *ackclient.Client, region string) Provider {
 	clusterID := options.FromContext(ctx).ClusterID
-	return NewACKManaged(clusterID, region, ackClient, cache.New(alicache.ClusterAttachScriptTTL, alicache.DefaultCleanupInterval))
+	if options.FromContext(ctx).ClusterType == ackManagedClusterType {
+		return NewACKManaged(clusterID, region, ackClient, cache.New(alicache.ClusterAttachScriptTTL, alicache.DefaultCleanupInterval))
+	}
+	return NewCustom()
 }

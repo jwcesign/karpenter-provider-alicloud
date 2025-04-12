@@ -17,6 +17,7 @@ limitations under the License.
 package imagefamily
 
 import (
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
 )
 
@@ -30,5 +31,5 @@ type Images []Image
 
 // ImageFamily can be implemented to override the default logic for generating dynamic launch template parameters
 type ImageFamily interface {
-	GetImages(kubernetesVersion, imageVersion string) (Images, error)
+	GetImages(supportedImages []cluster.Image, kubernetesVersion, imageVersion string) (Images, error)
 }

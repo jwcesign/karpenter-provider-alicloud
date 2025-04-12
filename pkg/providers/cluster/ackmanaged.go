@@ -39,7 +39,10 @@ import (
 	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
 )
 
-const defaultNodeLabel = "k8s.aliyun.com=true"
+const (
+	ackManagedClusterType = "ACKManaged"
+	defaultNodeLabel      = "k8s.aliyun.com=true"
+)
 
 type ACKManaged struct {
 	clusterID string
@@ -62,6 +65,10 @@ func NewACKManaged(clusterID string, region string, ackClient *ackclient.Client,
 
 func (a *ACKManaged) LivenessProbe(_ *http.Request) error {
 	return nil
+}
+
+func (a *ACKManaged) ClusterType() string {
+	return ackManagedClusterType
 }
 
 func (a *ACKManaged) GetClusterCNI(_ context.Context) (string, error) {
@@ -171,6 +178,12 @@ func (a *ACKManaged) UserData(ctx context.Context,
 }
 
 func (a *ACKManaged) FeatureFlags() FeatureFlags {
+	if cni, err := a.GetClusterCNI(context.TODO()); err == nil && cni == ClusterCNITypeFlannel {
+		return FeatureFlags{
+			PodsPerCoreEnabled:           false,
+			SupportsENILimitedPodDensity: false,
+		}
+	}
 	return FeatureFlags{
 		PodsPerCoreEnabled:           true,
 		SupportsENILimitedPodDensity: true,

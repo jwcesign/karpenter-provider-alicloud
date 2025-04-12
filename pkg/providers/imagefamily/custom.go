@@ -16,24 +16,12 @@ limitations under the License.
 
 package imagefamily
 
-import (
-	"context"
-	"encoding/base64"
-
-	"github.com/samber/lo"
-	corev1 "k8s.io/api/core/v1"
-
-	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/apis/v1alpha1"
-)
+import "github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
 
 type Custom struct {
 	*Options
 }
 
-func (c *Custom) GetImages(kubernetesVersion, imageVersion string) (Images, error) {
+func (c *Custom) GetImages(supportedImages []cluster.Image, kubernetesVersion, imageVersion string) (Images, error) {
 	return nil, nil
-}
-
-func (c *Custom) UserData(ctx context.Context, kubeletConfig *v1alpha1.KubeletConfiguration, taints []corev1.Taint, labels map[string]string, customUserData *string) (string, error) {
-	return base64.StdEncoding.EncodeToString([]byte(lo.FromPtr(customUserData))), nil
 }
