@@ -75,6 +75,7 @@ func (p *DefaultProvider) List(ctx context.Context, nodeClass *v1alpha1.ECSNodeC
 	return images, nil
 }
 
+//nolint:gocyclo
 func (p *DefaultProvider) getImages(ctx context.Context, nodeClass *v1alpha1.ECSNodeClass) (Images, error) {
 	hash, err := hashstructure.Hash(nodeClass.Spec.ImageSelectorTerms, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
 	if err != nil {
