@@ -42,26 +42,8 @@ var DefaultSystemDisk = v1alpha1.SystemDisk{
 	VolumeSize: resources.Quantity("20Gi"),
 }
 
-// Options define the static launch template parameters
+// Options for ImageFamily
 type Options struct {
-	ClusterName     string
-	ClusterEndpoint string
-	// Level-triggered fields that may change out of sync.
-	SecurityGroups []v1alpha1.SecurityGroup
-	Tags           map[string]string
-	Labels         map[string]string `hash:"ignore"`
-	NodeClassName  string
-}
-
-// LaunchTemplate holds the dynamically generated launch template parameters
-type LaunchTemplate struct {
-	*Options
-	UserData      string
-	ImageID       string
-	InstanceTypes []*cloudprovider.InstanceType `hash:"ignore"`
-	SystemDisk    *v1alpha1.SystemDisk
-	CapacityType  string
-	// TODO: need more field, HttpTokens, RamRole, NetworkInterface, DataDisk, ...
 }
 
 type InstanceTypeAvailableSystemDisk struct {
@@ -111,12 +93,14 @@ func NewDefaultResolver(region string, ecsapi *ecs.Client, cache *cache.Cache) *
 	}
 }
 
-func GetImageFamily(family string) ImageFamily {
+func GetImageFamily(family string, options *Options) ImageFamily {
 	switch family {
 	case v1alpha1.ImageFamilyContainerOS:
-		return &ContainerOS{}
+		return &ContainerOS{Options: options}
 	case v1alpha1.ImageFamilyAlibabaCloudLinux3:
-		return &AlibabaCloudLinux3{}
+		return &AlibabaCloudLinux3{Options: options}
+	case v1alpha1.ImageFamilyCustom:
+		return &Custom{Options: options}
 	default:
 		return nil
 	}

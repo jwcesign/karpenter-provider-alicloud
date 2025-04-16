@@ -16,19 +16,24 @@ limitations under the License.
 
 package imagefamily
 
-import "strings"
+import (
+	"github.com/cloudpilot-ai/karpenter-provider-alibabacloud/pkg/providers/cluster"
+	"strings"
+)
 
-type ContainerOS struct{}
+type ContainerOS struct {
+	*Options
+}
 
-func (c *ContainerOS) ResolveImages(images Images) Images {
+func (c *ContainerOS) GetImages(supportedImages []cluster.Image, kubernetesVersion, imageVersion string) (Images, error) {
 	var ret Images
-	for _, im := range images {
-		if !strings.HasPrefix(im.Name, "ContainerOS") {
+	for _, im := range supportedImages {
+		if !strings.HasPrefix(im.ImageName, "ContainerOS") {
 			continue
 		}
-
-		ret = append(ret, im)
+		if image, err := alibabaCloudLinuxResolveImages(im); err == nil {
+			ret = append(ret, image)
+		}
 	}
-
-	return ret
+	return ret, nil
 }
