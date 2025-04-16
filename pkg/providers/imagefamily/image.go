@@ -101,7 +101,7 @@ func (p *DefaultProvider) getImages(ctx context.Context, nodeClass *v1alpha1.ECS
 		var err error
 		if selectorTerm.Alias != "" {
 			alias := v1alpha1.NewAlias(selectorTerm.Alias)
-			imageFamily := GetImageFamily(selectorTerm.Alias, nil)
+			imageFamily := GetImageFamily(alias.Family, nil)
 			if imageFamily == nil {
 				return nil, fmt.Errorf("unsupported image family %s", selectorTerm.Alias)
 			}

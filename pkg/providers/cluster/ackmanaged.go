@@ -130,9 +130,9 @@ func (a *ACKManaged) GetSupportedImages(k8sVersion string) ([]Image, error) {
 			ImageID:      tea.StringValue(item.ImageId),
 			ImageName:    tea.StringValue(item.ImageName),
 			Platform:     tea.StringValue(item.Platform),
-			OsVersion:    tea.StringValue(item.OsVersion),
+			OSVersion:    tea.StringValue(item.OsVersion),
 			ImageType:    tea.StringValue(item.ImageType),
-			OsType:       tea.StringValue(item.OsType),
+			OSType:       tea.StringValue(item.OsType),
 			Architecture: tea.StringValue(item.Architecture),
 		}
 	}), nil

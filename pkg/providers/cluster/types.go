@@ -44,9 +44,9 @@ type Image struct {
 	ImageID      string
 	ImageName    string
 	Platform     string
-	OsVersion    string
+	OSVersion    string
 	ImageType    string
-	OsType       string
+	OSType       string
 	Architecture string
 }
 

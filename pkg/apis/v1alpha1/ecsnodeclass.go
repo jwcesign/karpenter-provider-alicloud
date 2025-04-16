@@ -304,24 +304,11 @@ const (
 func (in *ECSNodeClass) Hash() string {
 	return fmt.Sprint(lo.Must(hashstructure.Hash([]interface{}{
 		in.Spec,
-		in.ImageFamily(),
 	}, hashstructure.FormatV2, &hashstructure.HashOptions{
 		SlicesAsSets:    true,
 		IgnoreZeroValue: true,
 		ZeroNil:         true,
 	})))
-}
-
-// ImageFamily returns the family for a NodePool based on the following items, in order of precdence:
-//   - ecsnodeclass.spec.imageFamily
-//   - ecsnodeclass.spec.imageSelectorTerms[].alias
-//
-// If an alias is specified, ecsnodeclass.spec.imageFamily must match that alias, or be 'Custom' (enforced via validation).
-func (in *ECSNodeClass) ImageFamily() string {
-	if alias := in.Alias(); alias != nil {
-		return alias.Family
-	}
-	return ImageFamilyCustom
 }
 
 func (in *ECSNodeClass) Alias() *Alias {
