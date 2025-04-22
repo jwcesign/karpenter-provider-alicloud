@@ -9,9 +9,12 @@ require (
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.11.2
+	github.com/aws/karpenter-provider-aws v1.2.1
 	github.com/awslabs/operatorpkg v0.0.0-20250121140423-041752c305f4
 	github.com/cloudpilot-ai/priceserver v0.0.0-20241011010411-15ac0e19a857
 	github.com/mitchellh/hashstructure/v2 v2.0.2
+	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/gomega v1.36.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/samber/lo v1.49.1
 	github.com/stretchr/testify v1.10.0
@@ -27,10 +30,14 @@ require (
 )
 
 require (
+	github.com/awslabs/amazon-eks-ami/nodeadm v0.0.0-20240229193347-cfab22a10647 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
+	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	golang.org/x/tools v0.29.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 )
 

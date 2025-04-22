@@ -58,6 +58,10 @@ github.com/aliyun/credentials-go v1.4.3 h1:N3iHyvHRMyOwY1+0qBLSf3hb5JFiOujVSVuEp
 github.com/aliyun/credentials-go v1.4.3/go.mod h1:Jm6d+xIgwJVLVWT561vy67ZRP4lPTQxMbEYRuT2Ti1U=
 github.com/avast/retry-go v3.0.0+incompatible h1:4SOWQ7Qs+oroOTQOYnAHqelpCO0biHSxpiH9JdtuBj0=
 github.com/avast/retry-go v3.0.0+incompatible/go.mod h1:XtSnn+n/sHqQIpZ10K1qAevBhOOCWBLXXy3hyiqqBrY=
+github.com/aws/karpenter-provider-aws v1.2.1 h1:JPZ4EPM9iJ+lga6zDpsrHZuhojgKbrgWPqnwTFE3gNw=
+github.com/aws/karpenter-provider-aws v1.2.1/go.mod h1:ojjedpNzBJ0uKJ0Ge8/spDLbXWHIKGDbk8MUWh6pklE=
+github.com/awslabs/amazon-eks-ami/nodeadm v0.0.0-20240229193347-cfab22a10647 h1:8yRBVsjGmI7qQsPWtIrbWP+XfwHO9Wq7gdLVzjqiZFs=
+github.com/awslabs/amazon-eks-ami/nodeadm v0.0.0-20240229193347-cfab22a10647/go.mod h1:9NafTAUHL0FlMeL6Cu5PXnMZ1q/LnC9X2emLXHsVbM8=
 github.com/awslabs/operatorpkg v0.0.0-20250121140423-041752c305f4 h1:o5eK/Sh2Ndkv1xOw0Y3Wd9pIoFum8dvNY8MBYbFD9Rw=
 github.com/awslabs/operatorpkg v0.0.0-20250121140423-041752c305f4/go.mod h1:ajddvYQzaxpfjeVxLa02iedZnExetLxx45m3S86Dhj0=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
