@@ -364,7 +364,7 @@ func imageFamilyFromAlias(alias string) string {
 		ImageFamilyAlibabaCloudLinux3,
 		ImageFamilyContainerOS,
 	}, func(family string) bool {
-		return strings.ToLower(family) == components[0]
+		return family == components[0]
 	})
 	if !ok {
 		log.Fatalf("%q is an invalid alias family", components[0])
