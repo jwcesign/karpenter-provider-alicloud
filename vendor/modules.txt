@@ -41,6 +41,12 @@ github.com/aliyun/credentials-go/credentials/providers
 github.com/aliyun/credentials-go/credentials/request
 github.com/aliyun/credentials-go/credentials/response
 github.com/aliyun/credentials-go/credentials/utils
+# github.com/aws/karpenter-provider-aws v1.2.1
+## explicit; go 1.23.2
+github.com/aws/karpenter-provider-aws/pkg/providers/amifamily/bootstrap/mime
+# github.com/awslabs/amazon-eks-ami/nodeadm v0.0.0-20240229193347-cfab22a10647
+## explicit; go 1.21
+github.com/awslabs/amazon-eks-ami/nodeadm/api
 # github.com/awslabs/operatorpkg v0.0.0-20250121140423-041752c305f4
 ## explicit; go 1.23.0
 github.com/awslabs/operatorpkg/controller
@@ -87,6 +93,7 @@ github.com/fxamacker/cbor/v2
 # github.com/go-logr/logr v1.4.2
 ## explicit; go 1.18
 github.com/go-logr/logr
+github.com/go-logr/logr/funcr
 github.com/go-logr/logr/slogr
 # github.com/go-logr/zapr v1.3.0
 ## explicit; go 1.18
@@ -101,6 +108,9 @@ github.com/go-openapi/jsonreference/internal
 # github.com/go-openapi/swag v0.23.0
 ## explicit; go 1.20
 github.com/go-openapi/swag
+# github.com/go-task/slim-sprig/v3 v3.0.0
+## explicit; go 1.20
+github.com/go-task/slim-sprig/v3
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
@@ -129,6 +139,9 @@ github.com/google/go-cmp/cmp/internal/value
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
+# github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad
+## explicit; go 1.22
+github.com/google/pprof/profile
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
@@ -167,6 +180,41 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
+# github.com/onsi/ginkgo/v2 v2.22.2
+## explicit; go 1.22.0
+github.com/onsi/ginkgo/v2
+github.com/onsi/ginkgo/v2/config
+github.com/onsi/ginkgo/v2/formatter
+github.com/onsi/ginkgo/v2/ginkgo
+github.com/onsi/ginkgo/v2/ginkgo/build
+github.com/onsi/ginkgo/v2/ginkgo/command
+github.com/onsi/ginkgo/v2/ginkgo/generators
+github.com/onsi/ginkgo/v2/ginkgo/internal
+github.com/onsi/ginkgo/v2/ginkgo/labels
+github.com/onsi/ginkgo/v2/ginkgo/outline
+github.com/onsi/ginkgo/v2/ginkgo/run
+github.com/onsi/ginkgo/v2/ginkgo/unfocus
+github.com/onsi/ginkgo/v2/ginkgo/watch
+github.com/onsi/ginkgo/v2/internal
+github.com/onsi/ginkgo/v2/internal/global
+github.com/onsi/ginkgo/v2/internal/interrupt_handler
+github.com/onsi/ginkgo/v2/internal/parallel_support
+github.com/onsi/ginkgo/v2/internal/testingtproxy
+github.com/onsi/ginkgo/v2/reporters
+github.com/onsi/ginkgo/v2/types
+# github.com/onsi/gomega v1.36.2
+## explicit; go 1.22.0
+github.com/onsi/gomega
+github.com/onsi/gomega/format
+github.com/onsi/gomega/internal
+github.com/onsi/gomega/internal/gutil
+github.com/onsi/gomega/matchers
+github.com/onsi/gomega/matchers/internal/miter
+github.com/onsi/gomega/matchers/support/goraph/bipartitegraph
+github.com/onsi/gomega/matchers/support/goraph/edge
+github.com/onsi/gomega/matchers/support/goraph/node
+github.com/onsi/gomega/matchers/support/goraph/util
+github.com/onsi/gomega/types
 # github.com/patrickmn/go-cache v2.1.0+incompatible
 ## explicit
 github.com/patrickmn/go-cache
@@ -235,13 +283,18 @@ go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
+go.uber.org/zap/zaptest
 # golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c
 ## explicit; go 1.22.0
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
 # golang.org/x/net v0.34.0
 ## explicit; go 1.18
+golang.org/x/net/html
+golang.org/x/net/html/atom
+golang.org/x/net/html/charset
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
@@ -266,11 +319,23 @@ golang.org/x/term
 # golang.org/x/text v0.21.0
 ## explicit; go 1.18
 golang.org/x/text/cases
+golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
+golang.org/x/text/encoding/htmlindex
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/encoding/japanese
+golang.org/x/text/encoding/korean
+golang.org/x/text/encoding/simplifiedchinese
+golang.org/x/text/encoding/traditionalchinese
+golang.org/x/text/encoding/unicode
 golang.org/x/text/internal
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
 golang.org/x/text/internal/tag
+golang.org/x/text/internal/utf8internal
 golang.org/x/text/language
+golang.org/x/text/runes
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
@@ -278,6 +343,10 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.9.0
 ## explicit; go 1.18
 golang.org/x/time/rate
+# golang.org/x/tools v0.29.0
+## explicit; go 1.22.0
+golang.org/x/tools/cover
+golang.org/x/tools/go/ast/inspector
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
@@ -882,6 +951,7 @@ sigs.k8s.io/karpenter/pkg/utils/pretty
 sigs.k8s.io/karpenter/pkg/utils/resources
 sigs.k8s.io/karpenter/pkg/utils/result
 sigs.k8s.io/karpenter/pkg/utils/termination
+sigs.k8s.io/karpenter/pkg/utils/testing
 sigs.k8s.io/karpenter/pkg/utils/volume
 # sigs.k8s.io/structured-merge-diff/v4 v4.5.0
 ## explicit; go 1.13

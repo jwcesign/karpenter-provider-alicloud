@@ -143,8 +143,40 @@ func (a *ACKManaged) UserData(ctx context.Context,
 	taints []corev1.Taint,
 	kubeletCfg *v1alpha1.KubeletConfiguration,
 	userData *string) (string, error) {
+
+	attach, err := a.getClusterAttachScripts(ctx)
+	if err != nil {
+		return "", err
+	}
+	ackScript := a.ackBootstrap(attach, labels, taints, kubeletCfg)
+	cloudInit := NewCloudInit()
+
+	if err := cloudInit.Merge(&ackScript); err != nil {
+		return "", err
+	}
+	if err := cloudInit.Merge(userData); err != nil {
+		return "", err
+	}
+
+	return cloudInit.Script()
+}
+
+func (a *ACKManaged) FeatureFlags() FeatureFlags {
+	if cni, err := a.GetClusterCNI(context.TODO()); err == nil && cni == ClusterCNITypeFlannel {
+		return FeatureFlags{
+			PodsPerCoreEnabled:           false,
+			SupportsENILimitedPodDensity: false,
+		}
+	}
+	return FeatureFlags{
+		PodsPerCoreEnabled:           true,
+		SupportsENILimitedPodDensity: true,
+	}
+}
+
+func (a *ACKManaged) getClusterAttachScripts(ctx context.Context) (string, error) {
 	if cachedScript, ok := a.cache.Get(a.clusterID); ok {
-		return a.resolveUserData(cachedScript.(string), labels, taints, kubeletCfg, userData), nil
+		return cachedScript.(string), nil
 	}
 
 	reqPara := &ackclient.DescribeClusterAttachScriptsRequest{
@@ -174,20 +206,7 @@ func (a *ACKManaged) UserData(ctx context.Context,
 	}
 
 	a.cache.SetDefault(a.clusterID, respStr)
-	return a.resolveUserData(respStr, labels, taints, kubeletCfg, userData), nil
-}
-
-func (a *ACKManaged) FeatureFlags() FeatureFlags {
-	if cni, err := a.GetClusterCNI(context.TODO()); err == nil && cni == ClusterCNITypeFlannel {
-		return FeatureFlags{
-			PodsPerCoreEnabled:           false,
-			SupportsENILimitedPodDensity: false,
-		}
-	}
-	return FeatureFlags{
-		PodsPerCoreEnabled:           true,
-		SupportsENILimitedPodDensity: true,
-	}
+	return respStr, nil
 }
 
 // We need to manually retrieve the runtime configuration of the nodepool, with the default node pool prioritized.
@@ -239,20 +258,12 @@ func (a *ACKManaged) getClusterAttachRuntimeConfiguration(ctx context.Context) (
 		tea.StringValue(targetNodepool.KubernetesConfig.RuntimeVersion), nil
 }
 
-func (a *ACKManaged) resolveUserData(respStr string, labels map[string]string, taints []corev1.Taint,
-	kubeletCfg *v1alpha1.KubeletConfiguration, userData *string) string {
-	preUserData, postUserData := parseCustomUserData(userData)
+func (a *ACKManaged) ackBootstrap(respStr string, labels map[string]string, taints []corev1.Taint,
+	kubeletCfg *v1alpha1.KubeletConfiguration) string {
 
 	var script bytes.Buffer
 	// Add bash script header
 	script.WriteString("#!/bin/bash\n\n")
-
-	// Insert preUserData if available
-	if preUserData != "" {
-		// Pre-userData: scripts to be executed before node registration
-		script.WriteString("echo \"Executing preUserData...\"\n")
-		script.WriteString(preUserData + "\n\n")
-	}
 
 	// Clean up the input string
 	script.WriteString(respStr + " ")
@@ -264,15 +275,7 @@ func (a *ACKManaged) resolveUserData(respStr string, labels map[string]string, t
 	// Add taints
 	script.WriteString(fmt.Sprintf("--taints %s\n\n", a.formatTaints(taints)))
 
-	// Insert postUserData if available
-	if postUserData != "" {
-		// Post-userData: scripts to be executed after node registration
-		script.WriteString("echo \"Executing postUserData...\"\n")
-		script.WriteString(postUserData + "\n")
-	}
-
-	// Encode to base64
-	return base64.StdEncoding.EncodeToString(script.Bytes())
+	return script.String()
 }
 
 func (a *ACKManaged) formatLabels(labels map[string]string) string {
@@ -309,17 +312,4 @@ func convertNodeClassKubeletConfigToACKNodeConfig(kubeletCfg *v1alpha1.KubeletCo
 		return base64.StdEncoding.EncodeToString([]byte("{}"))
 	}
 	return base64.StdEncoding.EncodeToString(data)
-}
-
-const userDataSeparator = "#===USERDATA_SEPARATOR==="
-
-// By default, the UserData is executed after the node registration is completed.
-// If a user requires tasks to be executed both before and after node registration,
-// they must split the userdata into preUserData and postUserData using a SEPARATOR.
-func parseCustomUserData(userData *string) (string, string) {
-	parts := strings.Split(tea.StringValue(userData), userDataSeparator)
-	if len(parts) == 2 {
-		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-	}
-	return "", tea.StringValue(userData)
 }
