@@ -384,14 +384,13 @@ func (p *DefaultProvider) launchInstance(ctx context.Context, nodeClass *v1alpha
 		return nil, nil, fmt.Errorf("getting provisioning group, %w", err)
 	}
 
-	var resp *ecsclient.CreateAutoProvisioningGroupResponse
 	runtime := &util.RuntimeOptions{}
-
-	defer p.updateUnavailableOfferingsCache(ctx, resp, capacityType)
-	resp, err = p.ecsClient.CreateAutoProvisioningGroupWithOptions(createAutoProvisioningGroupRequest, runtime)
+	resp, err := p.ecsClient.CreateAutoProvisioningGroupWithOptions(createAutoProvisioningGroupRequest, runtime)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating auto provisioning group, %w", err)
 	}
+
+	p.updateUnavailableOfferingsCache(ctx, resp, capacityType)
 
 	if err := createAutoProvisioningGroupResponseHandler(resp); err != nil {
 		return nil, nil, err
@@ -399,6 +398,11 @@ func (p *DefaultProvider) launchInstance(ctx context.Context, nodeClass *v1alpha
 
 	return resp.Body.LaunchResults.LaunchResult[0], createAutoProvisioningGroupRequest, nil
 }
+
+const (
+	ErrCodeNoInstanceStock        = "NoInstanceStock"
+	ErrCodeOperationDeniedNoStock = "OperationDenied.NoStock"
+)
 
 func (p *DefaultProvider) updateUnavailableOfferingsCache(ctx context.Context, resp *ecsclient.CreateAutoProvisioningGroupResponse, capacityType string) {
 	if resp == nil || resp.Body == nil || resp.Body.LaunchResults == nil || len(resp.Body.LaunchResults.LaunchResult) == 0 {
@@ -410,7 +414,7 @@ func (p *DefaultProvider) updateUnavailableOfferingsCache(ctx context.Context, r
 			continue
 		}
 
-		if (tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorCode) == "NoInstanceStock" || tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorCode) == "OperationDenied.NoStock") &&
+		if (tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorCode) == ErrCodeNoInstanceStock || tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ErrorCode) == ErrCodeOperationDeniedNoStock) &&
 			tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].InstanceType) != "" &&
 			tea.StringValue(resp.Body.LaunchResults.LaunchResult[lri].ZoneId) != "" {
 			p.unavailableOfferings.MarkUnavailable(
@@ -439,6 +443,12 @@ func createAutoProvisioningGroupResponseHandler(resp *ecsclient.CreateAutoProvis
 	}
 
 	launchResult := launchResults[0]
+
+	if tea.StringValue(launchResult.ErrorCode) == ErrCodeNoInstanceStock || tea.StringValue(launchResult.ErrorCode) == ErrCodeOperationDeniedNoStock {
+		return cloudprovider.NewInsufficientCapacityError(alierrors.WithRequestID(tea.StringValue(resp.Body.RequestId),
+			fmt.Errorf("failed to launch instance: errorCode=%s, errorMessage=%s",
+				tea.StringValue(launchResult.ErrorCode), tea.StringValue(launchResult.ErrorMsg))))
+	}
 
 	if launchResult.InstanceIds == nil || len(launchResult.InstanceIds.InstanceId) == 0 {
 		return alierrors.WithRequestID(tea.StringValue(resp.Body.RequestId),
