@@ -34,7 +34,7 @@ func NewCustom() *Custom {
 	return &Custom{}
 }
 
-func (c *Custom) UserData(ctx context.Context, labels map[string]string, taints []corev1.Taint, configuration *v1alpha1.KubeletConfiguration, userData *string) (string, error) {
+func (c *Custom) UserData(ctx context.Context, labels map[string]string, taints []corev1.Taint, configuration *v1alpha1.KubeletConfiguration, userData *string, formatDataDisk bool) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(lo.FromPtr(userData))), nil
 }
 

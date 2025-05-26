@@ -53,7 +53,7 @@ type Image struct {
 // Provider can be implemented to generate userdata
 type Provider interface {
 	ClusterType() string
-	UserData(context.Context, map[string]string, []corev1.Taint, *v1alpha1.KubeletConfiguration, *string) (string, error)
+	UserData(context.Context, map[string]string, []corev1.Taint, *v1alpha1.KubeletConfiguration, *string, bool) (string, error)
 	GetClusterCNI(context.Context) (string, error)
 	LivenessProbe(*http.Request) error
 	GetSupportedImages(string) ([]Image, error)
