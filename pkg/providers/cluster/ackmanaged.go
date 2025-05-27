@@ -142,9 +142,10 @@ func (a *ACKManaged) UserData(ctx context.Context,
 	labels map[string]string,
 	taints []corev1.Taint,
 	kubeletCfg *v1alpha1.KubeletConfiguration,
-	userData *string) (string, error) {
+	userData *string,
+	formatDataDisk bool) (string, error) {
 
-	attach, err := a.getClusterAttachScripts(ctx)
+	attach, err := a.getClusterAttachScripts(formatDataDisk, ctx)
 	if err != nil {
 		return "", err
 	}
@@ -174,13 +175,14 @@ func (a *ACKManaged) FeatureFlags() FeatureFlags {
 	}
 }
 
-func (a *ACKManaged) getClusterAttachScripts(ctx context.Context) (string, error) {
+func (a *ACKManaged) getClusterAttachScripts(formatDataDisk bool, ctx context.Context) (string, error) {
 	if cachedScript, ok := a.cache.Get(a.clusterID); ok {
 		return cachedScript.(string), nil
 	}
 
 	reqPara := &ackclient.DescribeClusterAttachScriptsRequest{
 		KeepInstanceName: tea.Bool(true),
+		FormatDisk:       tea.Bool(formatDataDisk),
 	}
 	resp, err := a.ackClient.DescribeClusterAttachScripts(tea.String(a.clusterID), reqPara)
 	if err != nil {

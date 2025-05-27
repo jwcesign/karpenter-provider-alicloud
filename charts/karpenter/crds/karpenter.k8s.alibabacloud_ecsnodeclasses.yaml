@@ -70,6 +70,17 @@ spec:
                       type: string
                   type: object
                 type: array
+              formatDataDisk:
+                default: false
+                description: FormatDataDisk specifies whether to mount data disks
+                  to an existing instance when adding it to the cluster. This allows
+                  you to add data disks for storing container data and images. If
+                  FormatDataDisk is set to true, and the Elastic Compute Service (ECS)
+                  instances already have data disks mounted, but the file system on
+                  the last data disk is not initialized, the system will automatically
+                  format the disk to ext4 and mount it to /var/lib/containerd and
+                  /var/lib/kubelet.
+                type: boolean
               imageSelectorTerms:
                 description: ImageSelectorTerms is a list of or image selector terms.
                   The terms are ORed.

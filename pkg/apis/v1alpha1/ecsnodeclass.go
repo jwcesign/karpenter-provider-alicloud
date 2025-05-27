@@ -83,6 +83,10 @@ type ECSNodeClassSpec struct {
 	// +kubebuilder:validation:Items=Enum=cloud;cloud_efficiency;cloud_ssd;cloud_essd;cloud_auto;cloud_essd_entry
 	// +optional
 	DataDisksCategories []string `json:"dataDiskCategories,omitempty"`
+	// FormatDataDisk specifies whether to mount data disks to an existing instance when adding it to the cluster. This allows you to add data disks for storing container data and images. If FormatDataDisk is set to true, and the Elastic Compute Service (ECS) instances already have data disks mounted, but the file system on the last data disk is not initialized, the system will automatically format the disk to ext4 and mount it to /var/lib/containerd and /var/lib/kubelet.
+	// +kubebuilder:default:=false
+	// +optional
+	FormatDataDisk bool `json:"formatDataDisk,omitempty"`
 	// Tags to be applied on ecs resources like instances and launch templates.
 	// +kubebuilder:validation:XValidation:message="empty tag keys aren't supported",rule="self.all(k, k != '')"
 	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching ecs:ecs-cluster-name",rule="self.all(k, k !='ecs:ecs-cluster-name')"

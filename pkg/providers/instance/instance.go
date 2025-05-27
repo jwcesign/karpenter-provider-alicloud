@@ -688,7 +688,7 @@ func (p *DefaultProvider) buildUserData(ctx context.Context, capacityType string
 	}) {
 		taints = append(taints, karpv1.UnregisteredNoExecuteTaint)
 	}
-	return p.clusterProvider.UserData(ctx, labels, taints, kubeletCfg, nodeClass.Spec.UserData)
+	return p.clusterProvider.UserData(ctx, labels, taints, kubeletCfg, nodeClass.Spec.UserData, nodeClass.Spec.FormatDataDisk)
 }
 
 func resolveKubeletConfiguration(nodeClass *v1alpha1.ECSNodeClass) *v1alpha1.KubeletConfiguration {
