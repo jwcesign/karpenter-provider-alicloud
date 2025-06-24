@@ -222,6 +222,7 @@ func computeCapacity(ctx context.Context,
 		corev1.ResourcePods:             *pods(ctx, info, maxPods, podsPerCore, clusterCNI),
 		v1alpha1.ResourceNVIDIAGPU:      *nvidiaGPUs(info),
 		v1alpha1.ResourceAMDGPU:         *amdGPUs(info),
+		v1alpha1.ResourceAliyunENI:      *aliyunENIs(info),
 	}
 	return resourceList
 }
@@ -300,6 +301,11 @@ func nvidiaGPUs(info *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesIn
 	}
 
 	return resources.Quantity("0")
+}
+
+func aliyunENIs(info *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType) *resource.Quantity {
+	//reference to https://help.aliyun.com/zh/ack/ack-managed-and-ack-dedicated/user-guide/work-with-terway?spm=5176.30275541.J_ZGek9Blx07Hclc3Ddt9dg.42.45282f3dniUlVy&scm=20140722.S_help@@%E6%96%87%E6%A1%A3@@97467._.ID_help@@%E6%96%87%E6%A1%A3@@97467-RL_pod%E5%88%86%E9%85%8Deni-LOC_2024SPHelpResult-OR_ser-PAR1_215041f817507593960848826e35ab-V_4-RE_new5-P0_0-P1_0
+	return resources.Quantity(fmt.Sprint(*info.EniQuantity - 1))
 }
 
 func amdGPUs(info *ecsclient.DescribeInstanceTypesResponseBodyInstanceTypesInstanceType) *resource.Quantity {
