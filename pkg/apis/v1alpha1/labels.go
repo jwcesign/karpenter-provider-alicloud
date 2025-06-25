@@ -75,6 +75,7 @@ var (
 	ECSIntelCPUModelValue                             = "Intel"
 	ResourceNVIDIAGPU             corev1.ResourceName = "nvidia.com/gpu"
 	ResourceAMDGPU                corev1.ResourceName = "amd.com/gpu"
+	ResourceAliyunENI             corev1.ResourceName = "aliyun/eni"
 	ResourcePrivateIPv4Address    corev1.ResourceName = "vpc.alibabacloud.com/PrivateIPv4Address"
 	ECSClusterIDTagKey                                = "ecs:ecs-cluster-id"
 
