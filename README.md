@@ -44,8 +44,8 @@ Full documentation is available at [karpenter alibabacloud provider docs](https:
 
 We want your contributions and suggestions! One of the easiest ways to contribute is to participate in discussions on the Github Issues/Discussion, chat on IM or the bi-weekly community calls.
 
-* [Slack channel](https://kubernetes.slack.com/archives/C02SFFZSA2K)
-* [Community calls](https://calendar.google.com/calendar/u/0?cid=N3FmZGVvZjVoZWJkZjZpMnJrMmplZzVqYmtAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ)
+* [Slack channel](https://cloudpilotaicommunity.slack.com/archives/C093V65481H)
+* [Discord](https://discord.gg/WxFWc87QWr)
 * WeChat Group: Scan and you will be invited to join
 
   <img src="docs/images/wechat-group-alicloud-provider.png" width="50%">
