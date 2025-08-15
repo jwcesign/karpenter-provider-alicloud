@@ -47,7 +47,7 @@ import (
 const (
 	defaultTelemetryEndpoint = "https://api.cloudpilot.ai/api/v1/telemetry"
 	resourcesInfoPath        = "/clusters/%s/resourcesInfo"
-	interruptionEventPath    = "/clusters/%s/interruptionEvent"
+	interruptionEventPath    = "/clusters/%s/interruptionevent"
 
 	karpenterInitializedKey = "karpenter.sh/initialized"
 )
