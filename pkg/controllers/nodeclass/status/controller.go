@@ -105,10 +105,7 @@ func (c *Controller) Reconcile(ctx context.Context, nodeClass *v1alpha1.ECSNodeC
 		}
 	}
 
-	if errs != nil {
-		return reconcile.Result{}, errs
-	}
-	return result.Min(results...), nil
+	return result.Min(results...), errs
 }
 
 func (c *Controller) Register(_ context.Context, m manager.Manager) error {
